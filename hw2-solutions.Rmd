@@ -16,15 +16,190 @@ Source the libraries that will be used
 library("ggplot2")
 library("dplyr")
 library("readr")
+library("httr")
+library("tidyr")
+library("broom")
 ```
+
 
 ## Problem 1
 
+I'll use the **httr** file to download the `csv` file directly.
+```{r}
+sprinters_csv <- content(GET("https://raw.githubusercontent.com/POLS503/pols_503_sp15/master/data/sprinters.csv"))
+sprinters <- read_csv(sprinters_csv)
+```
+
+**a.** Create a matrix from the sprinters data using `as.matrix`, selecting only the `year` and `women` columns.
+Then append a column of 1s using `cbind`.
+
+```{r}
+X <- cbind(1, as.matrix(select(sprinters, year, women)))
+head(X)
+```
+Now, calculate $(X' X)^{-1} X' y$.
+```{r}
+solve(t(X) %*% X) %*% t(X) %*% sprinters$finish
+```
+
+**b.** Run a regression of finish time on year and whether the race was women.
+```{r}
+lm_finish <- lm(finish ~ year + women, data = sprinters)
+lm_finish
+```
+
+**c.** One way to do this re-using the fitted values is with the **broom** package function `augment`, which returns the original data, augmented with fitted values and other quantities calculated from the regression.
+```{r}
+x_axis_scale <- scale_x_continuous("Year")
+y_axis_scale <- scale_y_continuous("100m Olympic Winning Times")
+
+sprinters <- sprinters %>%
+  mutate(sex = plyr::mapvalues(women, c(0, 1), c("women", "men")))
+
+ggplot(augment(lm_finish) %>%
+       mutate(sex = plyr::mapvalues(women, c(0, 1), c("women", "men"))),
+       aes(x = year, group = sex, 
+           colour = sex)) +
+  geom_ribbon(alpha = 0.2, colour = NA,
+              mapping = aes(ymin = .fitted - 2 * .se.fit,
+                            ymax = .fitted + 2 * .se.fit)) +
+  geom_point(mapping = aes(y = finish)) +
+  geom_line(mapping = aes(y = .fitted)) + 
+  x_axis_scale + y_axis_scale + 
+  theme_minimal()
+```
+
+This is a more manual way of creating the plot
+```{r}
+ggplot(sprinters %>% mutate(fitted = fitted(lm_finish)),
+       aes(x = year, group = sex, 
+           colour = sex)) +
+  geom_point(mapping = aes(y = finish)) +
+  geom_line(mapping = aes(y = fitted)) + 
+  x_axis_scale + y_axis_scale + 
+  theme_minimal()
+```
+
+
+**d.** Run a regression of finish on year, women, and an interaction between year and women. This is almost equivalent to running separate regressions of finish time on year for men and women.
+```{r}
+lm_finish_interact <- lm(finish ~ year * women, data = sprinters)
+```
+
+**e.** Redo the plot with a new fit, one for each level of women. This can easily be done with `geom_smooth`.
+```{r}
+
+ggplot(sprinters, aes(x = year, y = finish, colour = sex)) +
+  geom_point() +
+  geom_smooth(method = "lm") + 
+  theme_minimal()
+```
+This can also be done using the **broom** package `tidy`.
+```{r}
+ggplot(augment(lm_finish_interact) %>%
+       mutate(sex = plyr::mapvalues(women, c(0, 1), c("women", "men"))),
+       aes(x = year, group = sex, 
+           colour = sex)) +
+  geom_ribbon(alpha = 0.2, colour = NA,
+              mapping = aes(ymin = .fitted - 2 * .se.fit,
+                            ymax = .fitted + 2 * .se.fit)) +
+  geom_point(mapping = aes(y = finish)) +
+  geom_line(mapping = aes(y = .fitted)) + 
+  x_axis_scale + y_axis_scale + 
+  theme_minimal()
+```
+
+**f.** Calculate the predicted winning times of the 100 m sprints in 2001.
+```{r}
+sprinters_2001 <- data_frame(year = rep(2001, 2),
+                             women = c(0, 1))
+predict(lm_finish_interact, newdata = sprinters_2001) 
+```
+Although there was no Olympics in 2001, there was a World Championship, which Maurice Greene won in 9.82 and Zhanna Pintusevich won in 10.82.
+
+**g.** Calculate the predicted winning times of the 100 m sprints in 2001.
+```{r}
+sprinters_2156 <- data_frame(year = rep(2156, 2),
+                             women = c(0, 1))
+predict(lm_finish_interact, newdata = sprinters_2156, 
+       interval = "prediction") 
+```
+The point predictions of the women's winning time is less than that of the men's winning time. 
+
+**h.** No. This is far outside the range of data used to estimate the regression (`r min(sprinters$year)` to `r max(sprinters$year)`).
+It is also logically incosistent, as in 3000, it would predict the winning time to be negative.
+```{r}
+sprinters_3000 <- data_frame(year = rep(3000, 2),
+                             women = c(0, 1))
+predict(lm_finish_interact, newdata = sprinters_3000, 
+       interval = "prediction") 
+```
 
 ## Problem 2
 
+Let's create this data:
+
+```{r}
+data("anscombe")
+anscombe2 <- anscombe %>%
+  mutate(obs = row_number()) %>%
+	gather(variable_dataset, value, - obs) %>%
+	separate(variable_dataset, c("variable", "dataset"), sep = 1L) %>%
+	spread(variable, value) %>%
+	arrange(dataset, obs)
+```
+
+**a.** All four datasets have similar summary statistics for x, y and the linear relationship between x and y.
+
+The mean  and standard deviation of $x$ 
+```{r}
+anscombe2 %>%
+  group_by(dataset) %>%
+  summarise(mean_x = mean(x),
+            mean_y = mean(y),
+            sd_x = sd(x),
+            sd_y = sd(y),
+            cor_xy = cor(x, y))
+```
+
+The regressions could be run separately
+```{r}
+lm(y ~ x, data = filter(anscombe2, dataset == 1))
+```
+but, that isn't fun.
+
+Instead, let's take full advantage of dplyr, tidy, and broom.
+Here are a couple of ways of running this code:
+```{r}
+anscombe2 %>%
+  group_by(dataset) %>%
+  do(mod = lm(y ~ x, data = .)) %>%
+  mutate(intercept = coef(mod)[1],
+         slope = coef(mod)[2])
+```
+
+```{r}
+anscombe2 %>%
+  group_by(dataset) %>%
+  do(select(tidy(lm(y ~ x, data = .)), term, estimate)) %>%
+  spread(term, estimate)
+```
+
+
+**b** Plot each dataset. They look very different, even though their coefficients are similar
+```{r}
+ggplot(anscombe2, aes(x = x, y = y)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  facet_wrap(~ dataset, nrow = 2) +
+  theme_minimal()
+  
+```
+
 
 ## Problem 3
+
+There will be many different responses.
 
 
 * * * 
