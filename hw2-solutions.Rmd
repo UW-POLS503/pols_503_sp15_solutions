@@ -88,12 +88,12 @@ lm_finish_interact <- lm(finish ~ year * women, data = sprinters)
 
 **e.** Redo the plot with a new fit, one for each level of women. This can easily be done with `geom_smooth`.
 ```{r}
-
 ggplot(sprinters, aes(x = year, y = finish, colour = sex)) +
   geom_point() +
   geom_smooth(method = "lm") + 
   theme_minimal()
-```
+``` 
+
 This can also be done using the **broom** package `tidy`.
 ```{r}
 ggplot(augment(lm_finish_interact) %>%
@@ -127,13 +127,37 @@ predict(lm_finish_interact, newdata = sprinters_2156,
 The point predictions of the women's winning time is less than that of the men's winning time. 
 
 **h.** No. This is far outside the range of data used to estimate the regression (`r min(sprinters$year)` to `r max(sprinters$year)`).
-It is also logically incosistent, as in 3000, it would predict the winning time to be negative.
+It is also logically inconsistent, as in 3000, it would predict the winning time to be negative.
 ```{r}
 sprinters_3000 <- data_frame(year = rep(3000, 2),
                              women = c(0, 1))
 predict(lm_finish_interact, newdata = sprinters_3000, 
        interval = "prediction") 
 ```
+
+Let's visualize this. 
+The `expand.grid` function is an easy way to create combinations of variables.
+```{r}
+sprinters_to_3000 <- expand.grid(year = seq(1800, 3000, by = 10),
+                                 women = c(0, 1))
+sprinters_to_3000_pred <-
+  cbind(sprinters_to_3000,
+        predict(lm_finish_interact, newdata = sprinters_to_3000,
+                interval = 'prediction'))
+
+ggplot() +
+  geom_line(data = sprinters_to_3000_pred, aes(x = year, y = fit,
+                                              colour = factor(women))) +
+  geom_ribbon(data = sprinters_to_3000_pred,
+              aes(x = year,
+                  ymin = lwr,
+                  ymax = upr,
+                  fill = factor(women)), alpha = 0.2) +
+  geom_point(data = sprinters, aes(x = year, y = finish, colour = factor(women))) +
+  theme_minimal()
+
+```
+
 
 ## Problem 2
 
@@ -165,8 +189,19 @@ anscombe2 %>%
 The regressions could be run separately
 ```{r}
 lm(y ~ x, data = filter(anscombe2, dataset == 1))
+# ...
 ```
 but, that isn't fun.
+
+You could do it in a `for` loop
+```{r}
+for (i in unique(anscombe2$dataset)) {
+  print(lm(y ~ x, data = filter(anscombe2, dataset == i)))
+}
+```
+Note, that by default, R functions usually print objects if they are not assigned to a variable.
+However, within a `for` loop, you need to explicitly print objects with the `print` function.
+
 
 Instead, let's take full advantage of dplyr, tidy, and broom.
 Here are a couple of ways of running this code:
