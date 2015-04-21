@@ -1,168 +1,194 @@
 ---
-title: "POLS/CSSS 503: Homework 1 Solutions"
+title: 'POLS/CSSS 503: Homework 1 Solutions'
 author: "Jeffrey B. Arnold"
-date: "April 16, 2015"
-output: html_document
+date: "April 20, 2015"
+output:
+  pdf_document: default
+  html_document:
+    fig_height: 3
+    fig_width: 5
 ---
-```{r echo=FALSE,results='hide',message=FALSE}
-knitr::opts_chunk$set(warning = FALSE, message = FALSE,
-                      fig.height = 3, fig.width = 5)
-```
 
-
-Source the libraries that will be used
-
-```{r libraries,message = FALSE}
+First, we'll load the libraries that will be used in this homework:
+```{r libraries, message = FALSE}
 library("ggplot2")
 library("dplyr")
 library("readr")
 ```
+**DO NOT** include `install.packages` in your analysis. That should be done outside the analysis document. If you expect someone else to run the code, it is also good manners to not install things unless they are aware of it.  If you are using unusual packages, make a note of it when loading the package.
+
+All questions should have any relevant code and code output. 
+They also **must** include some prose to inform the reader of what the code is doing,
+and, preferrably, the substantive implications of the code.
+The answers here focus on the code, but your answers should include some discussion of the meaning of the analysis.
+
+Finally, your code output should not contain messages, warnings or errors (unless the question asks for it). 
+For messages and warnings, either fix the code to address the issues in the message, or use the `warning = FALSE` and `message = FALSE` options to the chunk in order to suppress that output.
+See this [article](http://rmarkdown.rstudio.com/authoring_rcodechunks.html) and the R markdown [cheatsheet](http://shiny.rstudio.com/articles/rm-cheatsheet.html) for more information about code chunks.
+Look at the source (`.Rmd` file) for this to see where `message = FALSE` was used to suppress 
+messages in the final output.
 
 ## Problem 1
 
-a. I read in democracy using the **readr** function `read_csv`. I need to use the argument `na="."` because missing values are recorded as "."
+**a.** We read in the data set from csv using `read.csv`.
+I need to use the argument `na="."` because missing values are recorded as ".".
+`read.csv` will accept URLs (as long as they are http and https), so I read the data from the website directly in order to avoid any issues with finding its location.
+```{r democracy}
+democracy <-
+  read.csv(file = "http://pols503.github.io/pols_503_sp15/data/democracy.csv",
+           na = ".", 
+           stringsAsFactors = FALSE)
+```
 
-	```{r democracy}
-	democracy <- read.csv(file = "http://pols503.github.io/pols_503_sp15/data/democracy.csv", na = ".", stringsAsFactors = FALSE)
-	```
+**b.** Summarize the dataset using summary.
+This displays summary statistics for numeric and integer variables, and a table of values for character or factor variables.
+```{r summary}
+summary(democracy)
+```
 
-b. Summarize the dataset using summary
-	```{r summary}
-	summary(democracy)
-	```
-
-c. Use `select` to remove the identifier variables, and then compute the correlation of the remaining variables with the `cor` function. The argument `use` handles how missing values in `cor` are treated. The options `"complete.obs"` will drop any case (row) with a missing value, while `"pairwise.complete.obs"` will drop pairs will missing values. 
-	```{r cor}
-	democracy %>%
-	  select(- COUNTRY, - CTYNAME, - REGION, - YEAR) %>%
-	  cor(use = "pairwise.complete.obs")
+**c.** Use `select` to remove the identifier variables, and then compute the correlation of the remaining variables with the `cor` function. The argument `use` handles how missing values in `cor` are treated. The options `"complete.obs"` will drop any case (row) with a missing value, while `"pairwise.complete.obs"` will drop pairs will missing values. 
+```{r cor}
+dem_cor <- 
+  democracy %>%
+  select(- COUNTRY, - CTYNAME, - REGION) %>%
+  cor(use = "pairwise.complete.obs")
 	  
-	```
+```
 
-d. To plot a histogram with each value of `POLLIB` in its own bin, either adjust the `binwidth` parameter of `geom_histogram`
-	```{r hist_pollib1}
+Tables of correlation coefficients are essentially impossible to read, so a better option is to use one of several correlation visualizations. One is the `corrplot` function from package **corrplot**.
+```{r}
+library("corrplot")
+corrplot(dem_cor)
+
+```
+
+
+**d.** To plot a histogram with each value of `POLLIB` in its own bin, either adjust the `binwidth` parameter of `geom_histogram`
+```{r hist_pollib1, message = FALSE}
 	ggplot(democracy, aes(x = POLLIB)) + geom_histogram(bindwith = 1)
-	```
-	or turn `POLLIB` into a factor
-	```{r hist_pollib2}
+```
+or turn `POLLIB` into a factor
+```{r hist_pollib2, message = FALSE}
 	ggplot(democracy, aes(x = factor(POLLIB))) + geom_histogram(binwith = 1)
-	```
-  They produce slightly different looking plots, but both put each unique value of `POLLIB` (1-9) into separate plots.
+```
+They produce slightly different looking plots, but both put each unique value of `POLLIB` (1-9) into separate plots.
 
-e. A histogram of GDP per capita is
+**e.** A histogram of GDP per capita is
 
-	```{r hist_gdpw}
-	ggplot(democracy, aes(x = GDPW)) + geom_histogram()
-	```
+```{r hist_gdpw}
+ggplot(democracy, aes(x = GDPW)) + geom_histogram()
+```
 
-f. A histogram of *log* GDP per capita is
-	```{r hist_gdpw_log}
-	ggplot(democracy, aes(x = log(GDPW))) + geom_histogram()
-	```
+**f.** A histogram of *log* GDP per capita is
+```{r hist_gdpw_log}
+ggplot(democracy, aes(x = log(GDPW))) + geom_histogram()
+```
 
-f. Create a scatterplot of political liberties against GDP per capita
-	```{r point_pollib_gdpw}
-	ggplot(democracy, aes(x = GDPW, y = POLLIB)) +
-	  geom_point() +
-	  scale_y_continuous("Per capita GDP") +
-	  scale_x_continuous("Index of Political Liberty")
-	```
+**g.** Create a scatterplot of political liberties against GDP per capita.
+Since `POLLIB` can only take on discrete values between 1-7 it is hard to read this plot
+since it is hard to tell how many observations are in certain points since the points are **overplotted**.
+```{r point_pollib_gdpw}
+ggplot(democracy, aes(x = GDPW, y = POLLIB)) +
+  geom_point() +
+  ylab("Per capita GDP") +
+  xlab("Index of Political Liberty")
+```
 
-h. Create the same scatterplot while jittering the points
-	```{r point_pollib_gdpw_jitter}
-	ggplot(democracy, aes(x = GDPW, y = POLLIB)) +
-	  geom_jitter(height = 0.5) +
-	  scale_y_continuous("Per capita GDP") +
-	  scale_x_continuous("Index of Political Liberty")
-	```
+**h.** Create the same scatterplot while jittering the points.
+```{r point_pollib_gdpw_jitter}
+ggplot(democracy, aes(x = GDPW, y = POLLIB)) +
+  geom_jitter(height = 0.5) +
+  ylab("Per capita GDP") +
+  xlab("Index of Political Liberty")
+```
 
-g. Create a scatterplot of political liberties against *log* GDP per capita
-	```{r point_pollib_log_gdpw}
-	ggplot(democracy, aes(x = log(GDPW), y = POLLIB)) +
-	  geom_jitter(height = 0.5) +
-	  scale_y_continuous("Log(Per capita GDP)") +
-	  scale_x_continuous("Index of Political Liberty")
-	```
+**i.** Create a scatterplot of political liberties against *log* GDP per capita.
+```{r point_pollib_log_gdpw}
+ggplot(democracy, aes(x = log(GDPW), y = POLLIB)) +
+  geom_jitter(height = 0.5) +
+  ylab("Log(Per capita GDP)") +
+  xlab("Index of Political Liberty")
+```
+Whereas the scatterplot of against GDP had most of the mass of points at low levels of 
+GDP per capita (right skewed), by taking the log of the GDP per capita spreads out the data
+and makes the relationship more linear.
 
-
-i. A boxplot of GDP per capita for oil producing and non-oil producing nations is
-
-	```{r}
-	ggplot(democracy, aes(x = factor(OIL), y = GDPW)) +
-	  geom_boxplot() + 
-	  scale_x_discrete("Oil Exporter")
+**j.** A boxplot of GDP per capita for oil producing and non-oil producing nations is:
+```{r}
+ggplot(democracy, aes(x = factor(OIL), y = GDPW)) +
+  geom_boxplot() + 
+  scale_x_discrete("Oil Exporter")
 	
-	```
+```
 
-j. Comparing countries GDP per capita for Catholic vs. non-Catholic countries.
-	```{r gdpw_by_cath}
-	catholic_gdpw <- filter(democracy, CATH > 40)$GDPW %>% mean(na.rm = TRUE)
-	catholic_gdpw
-	all_gdpw <- mean(democracy$GDPW, na.rm = FALSE)
-	all_gdpw
-	catholic_gdpw / all_gdpw
-	```
-	The average GDP per captical of countries at least 40% Catholic countries was 1.3 times higher than those which were less than 40% Catholic.
+**k.** Comparing countries GDP per capita for Catholic vs. non-Catholic countries.
+```{r gdpw_by_cath}
+catholic_gdpw <- filter(democracy, CATH > 40)$GDPW %>% mean(na.rm = TRUE)
+catholic_gdpw
+all_gdpw <- mean(democracy$GDPW, na.rm = FALSE)
+all_gdpw
+catholic_gdpw / all_gdpw
+```
+The average GDP per captical of countries at least 40% Catholic countries was 1.3 times higher than those which were less than 40% Catholic.
 
-k. Calculate the average GDP per capita in countries with greater than 60% ethnolinguistic fractionalization, less than 60%, and missing ethnolinguistic fractionalization.
-	```{r gdpw_by_elf60}
-	democracy %>%
-	  mutate(high_elf60 = ELF60 > 0.6) %>%
-	  group_by(high_elf60) %>%
-	  summarise(gdpw_mean = mean(GDPW))
+**l.** Calculate the average GDP per capita in countries with greater than 60% ethnolinguistic fractionalization, less than 60%, and missing ethnolinguistic fractionalization.
+```{r gdpw_by_elf60}
+democracy %>%
+  mutate(high_elf60 = ELF60 > 0.6) %>%
+	group_by(high_elf60) %>%
+	summarise(gdpw_mean = mean(GDPW))
 	
-	```
+```
 
-l. Calculate the median years of education for all countries in 1985.
-	```{r median_edt_1985}
-	democracy %>%
-	  filter(YEAR == 1985) %>%
-	  summarise(EDT = median(EDT, na.rm = TRUE)) %>%
-	  select(EDT)
+**m.** Calculate the median years of education for all countries in 1985.
+```{r median_edt_1985}
+democracy %>%
+  filter(YEAR == 1985) %>%
+  summarise(EDT = median(EDT, na.rm = TRUE)) %>%
+  select(EDT)
 	
-	```
+```
 
-l. Find the country closest to the median of the average years of education in 1985.
-	```{r cty_edt_median_1985}
-	democracy %>%
-	  filter(YEAR == 1985, ! is.na(EDT)) %>%
-	  mutate(med_edt_diff = abs(EDT - median(EDT))) %>%
-	  filter(med_edt_diff == min(med_edt_diff)) %>%
-	  select(CTYNAME, EDT)
+**n.** Find the country closest to the median of the average years of education in 1985.
+```{r cty_edt_median_1985}
+democracy %>%
+  filter(YEAR == 1985, ! is.na(EDT)) %>%
+  mutate(med_edt_diff = abs(EDT - median(EDT))) %>%
+  filter(med_edt_diff == min(med_edt_diff)) %>%
+  select(CTYNAME, EDT)
 	
-	```
+```
 
-m. What is the median of the average years of education for democracies in 1985.
-	```{r median_edt_reg_1985}
-	edt_reg_1985 <-
-	  democracy %>%
-	  filter(! is.na(EDT),
-	         ! is.na(REG),
-	         as.logical(REG),
-	         YEAR == 1985)
-	
-	edt_reg_1985$EDT %>% median()
-	```
+**o.** What is the median of the average years of education for democracies in 1985.
+```{r median_edt_reg_1985}
+edt_reg_1985 <-
+  democracy %>%
+  filter(! is.na(EDT),
+         ! is.na(REG),
+         as.logical(REG),
+         YEAR == 1985)
 
-n. The democracy(ies) that were closest to the median of the average years of education for all democracies in 1985.
-	```{r edt_reg_1985_median_country}
-	edt_reg_1985 %>%
-	  mutate(med_edt_diff = abs(EDT - median(EDT))) %>%
-	  filter(med_edt_diff == min(med_edt_diff)) %>%
-	  select(CTYNAME, EDT)
-	```
+edt_reg_1985$EDT %>% median()
+```
 
-o. The 25th and 7th percentiles of the ethnolinguist fractionalization (`ELF60`) for new 
-   and old countries (`NEWC`) is
-	
-	```{r}
-	democracy %>%
-	  filter(! is.na(ELF60)) %>%
-	  group_by(NEWC) %>%
-	  summarise(elf60_p25 = quantile(ELF60, probs = 0.25),
-	            elf60_p75 = quantile(ELF60, probs = 0.75))
-	  
-	```
+**p.** The democracy(ies) that were closest to the median of the average years of education for all democracies in 1985.
+```{r edt_reg_1985_median_country}
+edt_reg_1985 %>%
+  mutate(med_edt_diff = abs(EDT - median(EDT))) %>%
+  filter(med_edt_diff == min(med_edt_diff)) %>%
+  select(CTYNAME, EDT)
+```
+
+**q.** The 25th and 7th percentiles of the ethnolinguist fractionalization (`ELF60`) for new 
+and old countries (`NEWC`) is
+```{r}
+democracy %>%
+  filter(! is.na(ELF60)) %>%
+  group_by(NEWC) %>%
+  summarise(elf60_p25 = quantile(ELF60, probs = 0.25),
+            elf60_p75 = quantile(ELF60, probs = 0.75))
+
+```
 
 
 ## Problem 2
