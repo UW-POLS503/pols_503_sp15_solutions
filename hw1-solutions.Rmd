@@ -9,7 +9,6 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE,
                       fig.height = 3, fig.width = 5)
 ```
 
-
 Source the libraries that will be used
 
 ```{r libraries,message = FALSE}
