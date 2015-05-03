@@ -1,5 +1,5 @@
 ---
-title: "POLS/CSSS 503: Homework 2 Solutions"
+title: "POLS/CSSS 503: Problem Set 2 Solutions"
 author: "Jeffrey B. Arnold"
 date: "April 24, 2015"
 output: html_document
