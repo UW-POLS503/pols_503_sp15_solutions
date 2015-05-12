@@ -1,8 +1,8 @@
 ---
-title: "POLS/CSSS 503: Problem Set 1 Solutions"
+title: 'POLS/CSSS 503: Problem Set 1 Solutions'
 author: "Jeffrey B. Arnold"
 date: "April 16, 2015"
-output: html_document
+output: pdf_document
 ---
 ```{r echo=FALSE,results='hide',message=FALSE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE,
@@ -59,7 +59,7 @@ f. A histogram of *log* GDP per capita is
 	ggplot(democracy, aes(x = log(GDPW))) + geom_histogram()
 	```
 
-f. Create a scatterplot of political liberties against GDP per capita
+g. Create a scatterplot of political liberties against GDP per capita
 	```{r point_pollib_gdpw}
 	ggplot(democracy, aes(x = GDPW, y = POLLIB)) +
 	  geom_point() +
@@ -75,7 +75,7 @@ h. Create the same scatterplot while jittering the points
 	  scale_x_continuous("Index of Political Liberty")
 	```
 
-g. Create a scatterplot of political liberties against *log* GDP per capita
+i. Create a scatterplot of political liberties against *log* GDP per capita
 	```{r point_pollib_log_gdpw}
 	ggplot(democracy, aes(x = log(GDPW), y = POLLIB)) +
 	  geom_jitter(height = 0.5) +
@@ -84,7 +84,7 @@ g. Create a scatterplot of political liberties against *log* GDP per capita
 	```
 
 
-i. A boxplot of GDP per capita for oil producing and non-oil producing nations is
+j. A boxplot of GDP per capita for oil producing and non-oil producing nations is
 
 	```{r}
 	ggplot(democracy, aes(x = factor(OIL), y = GDPW)) +
@@ -93,7 +93,7 @@ i. A boxplot of GDP per capita for oil producing and non-oil producing nations i
 	
 	```
 
-j. Comparing countries GDP per capita for Catholic vs. non-Catholic countries.
+k. Comparing countries GDP per capita for Catholic vs. non-Catholic countries.
 	```{r gdpw_by_cath}
 	catholic_gdpw <- filter(democracy, CATH > 40)$GDPW %>% mean(na.rm = TRUE)
 	catholic_gdpw
@@ -103,7 +103,7 @@ j. Comparing countries GDP per capita for Catholic vs. non-Catholic countries.
 	```
 	The average GDP per captical of countries at least 40% Catholic countries was 1.3 times higher than those which were less than 40% Catholic.
 
-k. Calculate the average GDP per capita in countries with greater than 60% ethnolinguistic fractionalization, less than 60%, and missing ethnolinguistic fractionalization.
+l. Calculate the average GDP per capita in countries with greater than 60% ethnolinguistic fractionalization, less than 60%, and missing ethnolinguistic fractionalization.
 	```{r gdpw_by_elf60}
 	democracy %>%
 	  mutate(high_elf60 = ELF60 > 0.6) %>%
@@ -112,7 +112,7 @@ k. Calculate the average GDP per capita in countries with greater than 60% ethno
 	
 	```
 
-l. Calculate the median years of education for all countries in 1985.
+m. Calculate the median years of education for all countries in 1985.
 	```{r median_edt_1985}
 	democracy %>%
 	  filter(YEAR == 1985) %>%
@@ -121,7 +121,7 @@ l. Calculate the median years of education for all countries in 1985.
 	
 	```
 
-l. Find the country closest to the median of the average years of education in 1985.
+n. Find the country closest to the median of the average years of education in 1985.
 	```{r cty_edt_median_1985}
 	democracy %>%
 	  filter(YEAR == 1985, ! is.na(EDT)) %>%
@@ -131,7 +131,7 @@ l. Find the country closest to the median of the average years of education in 1
 	
 	```
 
-m. What is the median of the average years of education for democracies in 1985.
+o. What is the median of the average years of education for democracies in 1985.
 	```{r median_edt_reg_1985}
 	edt_reg_1985 <-
 	  democracy %>%
@@ -151,7 +151,7 @@ n. The democracy(ies) that were closest to the median of the average years of ed
 	  select(CTYNAME, EDT)
 	```
 
-o. The 25th and 7th percentiles of the ethnolinguist fractionalization (`ELF60`) for new 
+q. The 25th and 7th percentiles of the ethnolinguist fractionalization (`ELF60`) for new 
    and old countries (`NEWC`) is
 	
 	```{r}

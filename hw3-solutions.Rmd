@@ -418,7 +418,7 @@ sims6_beta_sd <-
   spread(term, estimate_sd)
 sims6_beta_sd
 ```
-
+  
 As expected, robust standard errors are better estimates of $\sd(\beta)$.
 Classical standard errors are biased downwards.
 But this bias unnoticeable (relative to the sampling bias in the Monte Carlo simulations) until heteroskedasticity is large.
