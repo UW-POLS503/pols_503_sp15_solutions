@@ -265,7 +265,7 @@ R_X <- diag(k)
 beta <- c(0, 0, 0.1, 0.5, 1)
 sigma <- 1.9
 
-n_samples <- c(32, 128, 1024
+n_samples <- c(32, 128, 1024)
                
 sims4 <- list()
 for (i in 1:length(n_samples)) {
@@ -279,34 +279,51 @@ sims4 <- bind_rows(sims4)
 
 In this problem we will not use the function `summarize_sim` since we need to calculate different values.
 
-First, we will summarize 
-
-The null hypothesis for this is $H_0: \beta = 0$ and the alternative hypothesis is $H_a: \beta \neq 0$. 
+The null hypothesis for all $\hat\beta_j$ are $H_0: \beta_j = 0$ and the alternative hypothesis is $H_a: \beta_j \neq 0$. 
 In the simulation, $\beta_0 = \beta 1 = 0$, while $\beta_j \neq 0$ for $j = 2, 3, 4$. 
 Thus, statistically significant coefficients for $\hat\beta_0$ and $\hat\beta_1$ are Type I errors.
 Statistically insignificant coefficients for $\hat\beta_j$ for $j = 2, 3, 4$ are Type II errors.
 The following code calculates the proportion of statistically significant coefficients for each coefficient and sample size.
 The proportion of statistically significant coefficients for those coefficients is the *power* (1 - prob of a Type II error) of the regression with respect to that parameter.
 ```{r sims4_stat_sig}
-sims4 %>%
+sims4_stat_sig <-
+  sims4 %>%
   group_by(n, term) %>%
   summarize(stat_sig = mean(p.value < 0.05))
 ```
-There are several things to note
 
-- For all samples sizes the probability of 
-- The probability of getting an error is not equal to 0.05 for the parameters which are not 0. The probability of getting a Type II error (after fixing $\alpha = 0.05$) varies with repsect to the magnitude of the parameter, and the number of observations in the sample.
+- For the parameters which are equal to 0, the probability of getting an error (Type I) is equal to 0.05, *regardless of the sample size*.
+- The probability of getting an error is not equal to 0.05 for the parameters which are not 0. The probability of getting a Type II error (after fixing $\alpha = 0.05$) decreases with respect to the magnitude of the parameter, and the number of observations in the sample.
+- The non-zero parameter with the smallest magnitude ($\beta_2$) has a power of only 0.06 when $n = 32$, up to $0.38$ when $n = 1024$. The parameter with the largest magnitude $\beta_4$ has a power of 0.82 when $n = 32$, but this rises to 1 when $n = 1024.
 
+```{r}
+library("scales")
+ggplot(filter(sims4_stat_sig, term %in% paste0("X", 2:4)) %>%
+         rename(power = stat_sig),
+       aes(x = n, y = power, colour = term)) +
+  geom_point() + 
+  geom_line() + 
+  scale_x_continuous("Sample size", trans = log2_trans())
+```
 
+Now, I will consider the distributions of $p$-values for each parameter. 
+For the zero parameters, the $p$-values are distributed uniform between 0 and 1. 
+This is the expected behavior of $p$-values; they will be distributed uniform when the null hypothesis is true.
+For the non-zero parameters, the p-values move from being uniform when the power of the test is low (e.g. $\hat\beta_2$ for $n = 32$) to being always approximately 0 when the power of the test is high (e.g. $\hat\beta_4$ when $n \geq 128$).
 
-It is difficult to plot the densities on one plot, because the densities are of different magnitudes.
-To make it easier to compare the plots, the densities are scaled to have a maximum of 1 (option `..scaled..` in `geom_density`).
 ```{r sims4_pvalue_density,fig.height = 5}
 ggplot(mutate(sims4, n = factor(n))) +
   geom_density(aes(x = p.value, y = ..scaled..)) +
   geom_rug(aes(x = p.value)) +
   facet_grid(term ~ n, scale = "free_y")
 ```
+
+*Note:* 
+It is difficult to plot the densities on one plot, because the densities are of different magnitudes.
+To make it easier to compare the plots, the densities are scaled to have a maximum of 1 (option `..scaled..` in `geom_density`).
+
+Finally, consider the magnitudes of parameter values if they are first filtered by statistical significance. 
+The general pattern is that although OLS estimates are unbiased, the distribution of OLS estimates *conditional* on being statistically significant are biased upwards (in magnitude). 
 
 ```{r sims4_estimates, fig.height = 5, fig.width = 5}
 ggplot(mutate(sims4, n = factor(n)) %>%
@@ -316,11 +333,35 @@ ggplot(mutate(sims4, n = factor(n)) %>%
   facet_grid(term ~ n, scale = "free")
 ```
 
+From the plot above there are several patterns
+
+1. For the zero-parameters, since the true parameter is equal to zero, the only samples that produce statistically significant effects have estimates that are well above or below zero.
+2. For the non-zero parameters, as long as the power is less than 1, the distribution of estimates conditional on statistical significance is skewed right, and on average overestimate the value of the parameter.
+3. When the power and magnitude is lowe, e.g. $\hat\beta_2$ for $n = 32$, some samples produce statistically significant results with the wrong sign. In this case the distribution of statistically significant estimates is similar to that of the zero parameters --- they are bimodal and either too small or too large.
+4. For the non-zero parmaters, when the power is 1, then there are not samples that are statistically insignificant, so the distribution of estimates conditional on being statistically significant is the same as the distribution of the unconditional estimates, and centered at the true value.
+
+The following table shows how distributions of the statistically significant estimates is biased upwards, but that the bias decreases as the sample size increases.
+```{r}
+sims4 %>%
+  mutate(n = factor(n),
+        positive = estimate > 0) %>%
+  filter(p.value < 0.05) %>%
+  mutate(positive = ifelse(positive, "positive", "negative")) %>%
+  group_by(term, n, positive) %>%
+  summarize(estimate_mean = mean(estimate)) %>%
+  ungroup() %>%
+  spread(positive, estimate_mean) %>%
+  arrange(term, n)
+
+```
+
+
 ## Problem 5: Omitted Variable Bias
 
+Now we will consider how omitted variable bias affects the estimates of OLS.
+See the [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#omitted-variable-bias) for details of these simulations.
 
-Now we will consider how correlation between variables affects their estimates.
-The parameters for these simulations are
+The following code sets up the parameter for the simulation, and runs simulations for different values of the correlation between $x_1$ and $x_3$ (variable `rho_values`):
 ```{r sims5}
 n <- 1024
 k <- 3
@@ -329,7 +370,6 @@ s_X <- rep(1, k)
 beta <- c(0, rep(1, k))
 sigma <- 1.7
 ```
-
 ```{r sims5_loop}
 rho_values <- c(0, 0.1, 0.7, -0.7, 0.99, -0.99)
 sims5 <- list()
@@ -370,6 +410,7 @@ sims5_beta_sd <-
 sims5_beta_sd
 ```
 
+Both the classical and robust standard errors are good estimates of $\sd(\beta)$.
 ```{r sims5_se}
 sims5 %>%
   mutate(bias = estimate_sd - se_mean) %>%
@@ -385,7 +426,11 @@ sims5 %>%
 
 ## Problem 6: Heteroskedasticity
 
-The parameters for these simulations are
+In these simulations we consider how heteroskedasticity affects the estimates of OLS.
+See the [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#heteroskedasticity) for details of these simulations.
+
+
+The following code sets the parameters for the simulations, and runs simulations for varying values of heteroskedasticity, as set by $\gamma_13 in the variable `gamma1`:
 ```{r sims6_params}
 n <- 1024
 k <- 2
@@ -396,7 +441,6 @@ beta <- c(0, rep(1, k))
 gamma0 <- 1.5
 gamma2 <- 0
 ```
-
 ```{r sims6_loop}
 gamma1_values <- c(0, 0.2, 0.7)
 sims6 <- list()
@@ -412,7 +456,6 @@ for (i in 1:length(gamma1_values)) {
   sims6[[i]] <- sim_summ
 }
 sims6 <- bind_rows(sims6)
-
 ```
 
 Heteroskedasticity does not affect the bias of any of the coefficients.
