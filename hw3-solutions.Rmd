@@ -1,5 +1,5 @@
 ---
-title: "POLS/CSSS 503: Problem Set 1 Solutions"
+title: "POLS/CSSS 503: Problem Set 3 Solutions"
 author: "Jeffrey B. Arnold"
 date: "May 2, 2015"
 output:
@@ -14,45 +14,56 @@ $$
 \DeclareMathOperator{\diag}{diag}
 \DeclareMathOperator{\quantile}{quantile}
 $$
+
+This contains the solutions to Problem Set 3.
+Go [here](http://pols503.github.io/pols_503_sp15/hw/hw3.html) for the instructions.
+
+## Setup 
+
+This code sets some optiosn for knitr.
+The most important being to cache the results of computations, since the simulations are computationally non-trivial.
 ```{r local-init}
 library("knitr")
-opts_chunk$set(warning = FALSE, message = FALSE,
-               cache = TRUE, autodep = TRUE,
-               fig.height = 3, fig.width = 5,
-               error = TRUE)
-options(digits = 4)
+opts_chunk$set(cache = TRUE, autodep = TRUE,
+               fig.height = 3, fig.width = 5
+               )
 ```
 
-```{r echo = FALSE, message = FALSE}
-# Needed to keep search path correct
-library("MASS")
-```
-
+This code loads the packages that will be used in the analysis.
 ```{r load, message = FALSE}
+# MASS must be before dplyr so that the correct select is used.
+library("MASS")
 library("pols503")
 library("ggplot2")
 library("broom")
 library("assertthat")
 library("tidyr")
 library("dplyr")
+```
+```{r echo = FALSE, results = 'hide'}
+# otherwise caching results in the use of MASS::select
 select <- dplyr::select
 ```
 
 
+This problem set requires some functions written to do the sampling.
 ```{r hw3-functions, echo = FALSE}
 source("hw3-functions.R")
 ```
 
 # Solutions {.solutions}
 
-Set the number of iterations as a variable that will be reused in all the simulations.
+All the simulations will use 1,024 iterations, so I set the variable `iter` to that value in order to reuse it throughout the problem set.
 ```{r}
 iter <- 1024
 ```
 
 ## Problem 1
 
-There are 3 covariates in this simulation drawn from a multivariate normal distribution $N(0, I)$
+In this problem, I analyze the performance over the OLS estimator under the assumptions needed by the Gauss-Markov theorem.
+See the original [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#linear-normal-model-with-homoskedasticity) for the details.
+
+The following code sets up the parameters for the simulation and runs simulations using different sample sizes $n$ (the variable `n`):
 ```{r sims1_param1}
 k <- 3
 mu_X <- rep(0, k)
@@ -60,14 +71,9 @@ s_X <- rep(1, k)
 R_X <- diag(k)
 beta <- c(0, rep(1, k))
 sigma <- 1.7
-```
-
-We are interested in the performance of OLS as the sample size increases:
-```{r sims1_n_samples}
 n_samples <- c(32, 64, 512, 1024)
-```
-Now estimate the samples:
-```{r sims1_loop}
+
+
 sims1 <- list()
 # Loop over the integers 1 to the number of different sample sizes.
 for (i in 1:length(n_samples)) {
@@ -83,10 +89,9 @@ for (i in 1:length(n_samples)) {
 sims1 <- bind_rows(sims1)
 ```
 
-
-Although you likely ran the simulations separately, this is a good place to use the **dplyr** function `do`.
+*Aside:* An alternative to using a loops for the simulation is the **dplyr** function `do`:
 ```{r sims1_do,eval=FALSE}
-sims1 <- data.frame(n = c(8, 64, 512, 1024)) %>%
+sims1 <- data.frame(n = n_samples) %>%
   group_by(n) %>%
   do(summarize_sim(sim_lin_norm(iter = iter, n = .$n, mu_X = mu_X, s_X = s_X, 
                                R_X = R_X, beta = beta, sigma = sigma),
@@ -110,7 +115,7 @@ ggplot(sims1_beta_bias, aes(x = log2(n), y = bias)) +
   ylab(expression(hat(beta) - beta))
 ```
 
-The standard deviation of the estimates, $\beta$, decreases with sample size.
+The standard deviation of the estimates, $\sd(\beta)$, decreases with sample size.
 ```{r sims1_beta_sd}
 sims1_beta_sd <-
   sims1 %>%
@@ -125,6 +130,7 @@ ggplot(sims1, aes(x = log2(n), y = estimate_sd)) +
   facet_wrap(~ term, nrow = 2) +
   ylab(expression("sd" * group("(", beta, ")")))
 ```
+
 Classical standard errors are unbiased estimates of $\sd{\beta}$.
 Robust standard errors appear to be biased downward, but the bias decreases as sample size increases.
 ```{r sims1_se}
@@ -142,8 +148,10 @@ sims1 %>%
 
 ## Problem 2: Correlated Covariates
 
-Now we will consider how correlation between variables affects their estimates.
-The parameters for these simulations are
+Now we will consider how correlation between variables affects their estimates. 
+See the [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#correlated-variables) for details of these simulations.
+
+The following code sets the parameters for these simulations, and runs simulations for different values of the correlation between $x_1$ and $x_1$ (variable `rho_values`):
 ```{r sims2}
 n <- 1024
 k <- 3
@@ -151,9 +159,6 @@ mu_X <- rep(0, 3)
 s_X <- rep(1, 3)
 beta <- c(0, rep(1, 3))
 sigma <- 1.7
-```
-Now loop over the values of $\rho$ and calculate the parameter
-```{r sims2_loop}
 rho_values <- c(0, 0.5, 0.95, -0.5, -0.95)
 sims2 <- list()
 # Loop over the integers 1 to the number of different sample sizes.
@@ -175,7 +180,6 @@ sims2 <- bind_rows(sims2)
 ```
 
 Correlation between covariates does not affect the bias of the estimates of $\beta$.
-The standard deviation of the estimates, $\beta$, decreases with sample size.
 ```{r sims2_beta_bias}
 sims2_beta_bias <- sims2 %>%
   mutate(bias = estimate_mean - beta_true) %>%
@@ -210,7 +214,7 @@ ggplot(sims2, aes(x = rho, y = estimate_sd)) +
 
 Even though the standard deviation of $\hat\beta$ is increasing, the classical standard error is an unbiased estimate of it.
 The deviations are simply due to the larger sampling error when the standard deviation is large.
-The robust standard error is also a good estimate of $sd(\beta)$.
+The robust standard error is also a reasonable estimate of $sd(\beta)$.
 ```{r sims2_se}
 sims2 %>%
   mutate(bias = estimate_sd - se_mean) %>%
@@ -228,7 +232,7 @@ sims2 %>%
 
 If the correlation between $x_1$ and $x_2$ is set to 1, then it is a case of perfect collinearity.
 It is impossible to estimate a linear regression in this case.
-Instead of throwing an error, R drops $x_2$ and estimates a linear regression with only $x_1$ and $x_3$.
+Instead of throwing an error, R is nice (perhaps too nice), drops $x_2$, and estimates a linear regression with only $x_1$ and $x_3$.
 ```{r sims3}
 R_X <- diag(k)
 R_X[1, 2] <- R_X[2, 1] <- 1
@@ -249,7 +253,10 @@ mvrnorm(5, mu = mu_X, Sigma = matrix(c(1, -1, 0, -1, 1, 0, 0, 0, 1),
 
 ## Problem 4: P-values and Type I and II Errors
 
-Set up the parameters of the simulation
+This problem evaluates the behavior of $p$-values and Type I and II errors with respect to the magnitude of $\beta$ and the sample size.
+See the [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#p-values-type-i-and-ii-errors) for details of these simulations.
+
+Set up the parameters of the simulation and run it for varying sample sizes, which are contained in the variable `n_samples`:
 ```{r sims4_params}
 k <- 4
 mu_X <- rep(0, k)
@@ -257,32 +264,40 @@ s_X <- rep(1, k)
 R_X <- diag(k)
 beta <- c(0, 0, 0.1, 0.5, 1)
 sigma <- 1.9
-```
 
-```{r sims4_n_samples}
-n_samples <- c(32, 128, 1024)
-```
-
-
-```{r sims4_loop}
+n_samples <- c(32, 128, 1024
+               
 sims4 <- list()
-# Loop over the integers 1 to the number of different sample sizes.
 for (i in 1:length(n_samples)) {
-  # Create a correlation matrix
   n <- n_samples[i]
   sim_results <- sim_lin_norm(iter, n, mu_X, s_X, R_X, beta, sigma)
   sim_results[["n"]] <- n
-  # Save the data to the list in location i
   sims4[[i]] <- sim_results
 }
 sims4 <- bind_rows(sims4)
 ```
 
+In this problem we will not use the function `summarize_sim` since we need to calculate different values.
+
+First, we will summarize 
+
+The null hypothesis for this is $H_0: \beta = 0$ and the alternative hypothesis is $H_a: \beta \neq 0$. 
+In the simulation, $\beta_0 = \beta 1 = 0$, while $\beta_j \neq 0$ for $j = 2, 3, 4$. 
+Thus, statistically significant coefficients for $\hat\beta_0$ and $\hat\beta_1$ are Type I errors.
+Statistically insignificant coefficients for $\hat\beta_j$ for $j = 2, 3, 4$ are Type II errors.
+The following code calculates the proportion of statistically significant coefficients for each coefficient and sample size.
+The proportion of statistically significant coefficients for those coefficients is the *power* (1 - prob of a Type II error) of the regression with respect to that parameter.
 ```{r sims4_stat_sig}
 sims4 %>%
   group_by(n, term) %>%
   summarize(stat_sig = mean(p.value < 0.05))
 ```
+There are several things to note
+
+- For all samples sizes the probability of 
+- The probability of getting an error is not equal to 0.05 for the parameters which are not 0. The probability of getting a Type II error (after fixing $\alpha = 0.05$) varies with repsect to the magnitude of the parameter, and the number of observations in the sample.
+
+
 
 It is difficult to plot the densities on one plot, because the densities are of different magnitudes.
 To make it easier to compare the plots, the densities are scaled to have a maximum of 1 (option `..scaled..` in `geom_density`).
