@@ -1,0 +1,492 @@
+---
+title: "POLS/CSSS 503: Problem Set 3 Solutions"
+author: "Jeffrey B. Arnold"
+date: "May 2, 2015"
+---
+$$
+\DeclareMathOperator{\cor}{cor}
+\DeclareMathOperator{\cov}{cov}
+\DeclareMathOperator{\sd}{sd}
+\DeclareMathOperator{\se}{se}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\quantile}{quantile}
+$$
+
+This contains the solutions to Problem Set 3.
+Go [here](http://pols503.github.io/pols_503_sp15/hw/hw3.html) for the instructions.
+
+## Setup 
+
+This code sets some optiosn for knitr.
+The most important being to cache the results of computations, since the simulations are computationally non-trivial.
+```{r local-init}
+library("knitr")
+opts_chunk$set(cache = TRUE, autodep = TRUE,
+               fig.height = 3, fig.width = 5
+               )
+```
+
+This code loads the packages that will be used in the analysis.
+```{r load, message = FALSE}
+# MASS must be before dplyr so that the correct select is used.
+library("MASS")
+library("pols503")
+library("ggplot2")
+library("broom")
+library("assertthat")
+library("tidyr")
+library("dplyr")
+```
+```{r echo = FALSE, results = 'hide'}
+# otherwise caching results in the use of MASS::select
+select <- dplyr::select
+```
+
+
+This problem set requires some functions written to do the sampling.
+```{r hw3-functions, echo = FALSE}
+source("hw3-functions.R")
+```
+
+# Solutions {.solutions}
+
+All the simulations will use 1,024 iterations, so I set the variable `iter` to that value in order to reuse it throughout the problem set.
+```{r}
+iter <- 1024
+```
+
+## Problem 1
+
+In this problem, I analyze the performance over the OLS estimator under the assumptions needed by the Gauss-Markov theorem.
+See the original [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#linear-normal-model-with-homoskedasticity) for the details.
+
+The following code sets up the parameters for the simulation and runs simulations using different sample sizes $n$ (the variable `n`):
+```{r sims1_param1}
+k <- 3
+mu_X <- rep(0, k)
+s_X <- rep(1, k)
+R_X <- diag(k)
+beta <- c(0, rep(1, k))
+sigma <- 1.7
+n_samples <- c(32, 64, 512, 1024)
+
+
+sims1 <- list()
+# Loop over the integers 1 to the number of different sample sizes.
+for (i in 1:length(n_samples)) {
+  # Run simulation
+  sim_results <- sim_lin_norm(iter, n_samples[i], mu_X, s_X, R_X, beta, sigma)
+  # Summarize simmulations
+  sim_summ <- summarize_sim(sim_results, beta)
+  # Add a new column to the data to indicate which sample size this simulation used
+  sim_summ[["n"]] <- n_samples[i]
+  # Save the data to the list in location i
+  sims1[[i]] <- sim_summ
+}
+sims1 <- bind_rows(sims1)
+```
+
+*Aside:* An alternative to using a loops for the simulation is the **dplyr** function `do`:
+```{r sims1_do,eval=FALSE}
+sims1 <- data.frame(n = n_samples) %>%
+  group_by(n) %>%
+  do(summarize_sim(sim_lin_norm(iter = iter, n = .$n, mu_X = mu_X, s_X = s_X, 
+                               R_X = R_X, beta = beta, sigma = sigma),
+                   beta = beta))
+```
+
+All the $\beta$ are unbiased, and this does not change with sample size.
+The slightly larger magnitudes of bias in the smaller values of $n$ are due to the Monte Carlo error; we should have used more than `r iter` iterations.
+```{r sims1_beta_bias}
+sims1_beta_bias <- sims1 %>%
+  mutate(bias = estimate_mean - beta_true) %>%
+  select(term, n, bias, estimate_mean, beta_true) %>%
+  arrange(term, n)
+sims1_beta_bias
+```
+```{r sims1_beta_bias_plot}
+ggplot(sims1_beta_bias, aes(x = log2(n), y = bias)) +
+  geom_point() +
+  geom_line() + 
+  facet_wrap(~ term, nrow = 2) +
+  ylab(expression(hat(beta) - beta))
+```
+
+The standard deviation of the estimates, $\sd(\beta)$, decreases with sample size.
+```{r sims1_beta_sd}
+sims1_beta_sd <-
+  sims1 %>%
+  select(term, estimate_sd, n) %>%
+  spread(term, estimate_sd)
+sims1_beta_sd
+```
+```{r sims1_beta_sd_plot}
+ggplot(sims1, aes(x = log2(n), y = estimate_sd)) +
+  geom_point() + 
+  geom_line() +
+  facet_wrap(~ term, nrow = 2) +
+  ylab(expression("sd" * group("(", beta, ")")))
+```
+
+Classical standard errors are unbiased estimates of $\sd{\beta}$.
+Robust standard errors appear to be biased downward, but the bias decreases as sample size increases.
+```{r sims1_se}
+sims1 %>%
+  mutate(bias = estimate_sd - se_mean) %>%
+  select(term, n, bias, estimate_sd, se_mean) %>%
+  arrange(term, n)
+```
+```{r sims1_se_robust}
+sims1 %>%
+  mutate(bias = estimate_sd - se_robust_mean) %>%
+  select(term, n, bias, estimate_sd, se_robust_mean) %>%
+  arrange(term, n)
+```
+
+## Problem 2: Correlated Covariates
+
+Now we will consider how correlation between variables affects their estimates. 
+See the [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#correlated-variables) for details of these simulations.
+
+The following code sets the parameters for these simulations, and runs simulations for different values of the correlation between $x_1$ and $x_1$ (variable `rho_values`):
+```{r sims2}
+n <- 1024
+k <- 3
+mu_X <- rep(0, 3)
+s_X <- rep(1, 3)
+beta <- c(0, rep(1, 3))
+sigma <- 1.7
+rho_values <- c(0, 0.5, 0.95, -0.5, -0.95)
+sims2 <- list()
+# Loop over the integers 1 to the number of different sample sizes.
+for (i in 1:length(rho_values)) {
+  # Create a correlation matrix
+  rho <- rho_values[i]
+  R_X <- diag(k)
+  R_X[1, 3] <- rho
+  R_X[3, 1] <- R_X[1, 3]
+  sim_results <- sim_lin_norm(iter, n, mu_X, s_X, R_X, beta, sigma)
+  # Summarize simmulations
+  sim_summ <- summarize_sim(sim_results, beta)
+  # Add a new column to the data to indicate which sample size this simulation used
+  sim_summ[["rho"]] <- rho
+  # Save the data to the list in location i
+  sims2[[i]] <- sim_summ
+}
+sims2 <- bind_rows(sims2)
+```
+
+Correlation between covariates does not affect the bias of the estimates of $\beta$.
+```{r sims2_beta_bias}
+sims2_beta_bias <- sims2 %>%
+  mutate(bias = estimate_mean - beta_true) %>%
+  select(term, rho, bias, estimate_mean, beta_true) %>%
+  arrange(term, rho)
+sims2_beta_bias
+```
+```{r sims2_beta_bias_plot}
+ggplot(sims2_beta_bias, aes(x = rho, y = bias)) +
+  geom_point() +
+  geom_line() + 
+  facet_wrap(~ term, nrow = 2) +
+  ylab(expression(hat(beta) - beta))
+```
+
+Correlation between covariates increase the standard deviation of the coefficients for those covariates that are correlated, $\hat\beta_1$ and $\hat\beta_2$.
+The effect of correlation on $\sd(\hat\beta)$ only depends on the magnitude of the correlation and not the direction; the standard deviations are within sampling error for the correlations of -0.5 and 0.5, and -0.95 and 0.95.
+But it does not increase the standard deviation of the coefficient on $x_3$, which is uncorrelated with either $x_1$ or $x_2$, or the intercept, $\hat\beta_0$.
+```{r sims2_beta_sd}
+sims2_beta_sd <-
+  sims2 %>%
+  select(term, estimate_sd, rho) %>%
+  spread(term, estimate_sd)
+```
+```{r sims2_beta_sd_plot}
+ggplot(sims2, aes(x = rho, y = estimate_sd)) +
+  geom_point() + 
+  geom_line() +
+  facet_wrap(~ term, nrow = 2, scales = "free") +
+  ylab(expression("sd" * group("(", beta, ")")))
+```
+
+Even though the standard deviation of $\hat\beta$ is increasing, the classical standard error is an unbiased estimate of it.
+The deviations are simply due to the larger sampling error when the standard deviation is large.
+The robust standard error is also a reasonable estimate of $sd(\beta)$.
+```{r sims2_se}
+sims2 %>%
+  mutate(bias = estimate_sd - se_mean) %>%
+  select(term, rho, bias, estimate_sd, se_mean) %>%
+  arrange(term, rho)
+```
+```{r sims2_se_robust}
+sims2 %>%
+  mutate(bias = estimate_sd - se_robust_mean) %>%
+  select(term, rho, bias, estimate_sd, se_robust_mean) %>%
+  arrange(term, rho)
+```
+
+## Problem 3: Collinearity
+
+If the correlation between $x_1$ and $x_2$ is set to 1, then it is a case of perfect collinearity.
+It is impossible to estimate a linear regression in this case.
+Instead of throwing an error, R is nice (perhaps too nice), drops $x_2$, and estimates a linear regression with only $x_1$ and $x_3$.
+```{r sims3}
+R_X <- diag(k)
+R_X[1, 2] <- R_X[2, 1] <- 1
+sim_lin_norm(1, n, mu_X = mu_X, s_X = s_X, R_X = R_X,
+             beta = beta, sigma = sigma)
+```
+One way to see what happens when two variables are perfectly correlated is to draw some samples from a multivariate normal distribution in which $x_1$ and $x_2$ are perfectly correlated.
+Note that for all observations $x_1 = x_2$:
+```{r}
+mvrnorm(5, mu = mu_X, Sigma = R_X, empirical = TRUE)
+```
+Setting the $cor(x_1, x_2) = -1$ would also have this problem. 
+In that case $x_2 = - 1 \times x_1$:
+```{r}
+mvrnorm(5, mu = mu_X, Sigma = matrix(c(1, -1, 0, -1, 1, 0, 0, 0, 1),
+                                           nrow = 3), empirical = TRUE)
+```
+
+## Problem 4: P-values and Type I and II Errors
+
+This problem evaluates the behavior of $p$-values and Type I and II errors with respect to the magnitude of $\beta$ and the sample size.
+See the [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#p-values-type-i-and-ii-errors) for details of these simulations.
+
+Set up the parameters of the simulation and run it for varying sample sizes, which are contained in the variable `n_samples`:
+```{r sims4_params}
+k <- 4
+mu_X <- rep(0, k)
+s_X <- rep(1, k)
+R_X <- diag(k)
+beta <- c(0, 0, 0.1, 0.5, 1)
+sigma <- 1.9
+
+n_samples <- c(32, 128, 1024)
+               
+sims4 <- list()
+for (i in 1:length(n_samples)) {
+  n <- n_samples[i]
+  sim_results <- sim_lin_norm(iter, n, mu_X, s_X, R_X, beta, sigma)
+  sim_results[["n"]] <- n
+  sims4[[i]] <- sim_results
+}
+sims4 <- bind_rows(sims4)
+```
+
+In this problem we will not use the function `summarize_sim` since we need to calculate different values.
+
+The null hypothesis for all $\hat\beta_j$ are $H_0: \beta_j = 0$ and the alternative hypothesis is $H_a: \beta_j \neq 0$. 
+In the simulation, $\beta_0 = \beta 1 = 0$, while $\beta_j \neq 0$ for $j = 2, 3, 4$. 
+Thus, statistically significant coefficients for $\hat\beta_0$ and $\hat\beta_1$ are Type I errors.
+Statistically insignificant coefficients for $\hat\beta_j$ for $j = 2, 3, 4$ are Type II errors.
+The following code calculates the proportion of statistically significant coefficients for each coefficient and sample size.
+The proportion of statistically significant coefficients for those coefficients is the *power* (1 - prob of a Type II error) of the regression with respect to that parameter.
+```{r sims4_stat_sig}
+sims4_stat_sig <-
+  sims4 %>%
+  group_by(n, term) %>%
+  summarize(stat_sig = mean(p.value < 0.05))
+```
+
+- For the parameters which are equal to 0, the probability of getting an error (Type I) is equal to 0.05, *regardless of the sample size*.
+- The probability of getting an error is not equal to 0.05 for the parameters which are not 0. The probability of getting a Type II error (after fixing $\alpha = 0.05$) decreases with respect to the magnitude of the parameter, and the number of observations in the sample.
+- The non-zero parameter with the smallest magnitude ($\beta_2$) has a power of only 0.06 when $n = 32$, up to $0.38$ when $n = 1024$. The parameter with the largest magnitude $\beta_4$ has a power of 0.82 when $n = 32$, but this rises to 1 when $n = 1024.
+
+```{r}
+library("scales")
+ggplot(filter(sims4_stat_sig, term %in% paste0("X", 2:4)) %>%
+         rename(power = stat_sig),
+       aes(x = n, y = power, colour = term)) +
+  geom_point() + 
+  geom_line() + 
+  scale_x_continuous("Sample size", trans = log2_trans())
+```
+
+Now, I will consider the distributions of $p$-values for each parameter. 
+For the zero parameters, the $p$-values are distributed uniform between 0 and 1. 
+This is the expected behavior of $p$-values; they will be distributed uniform when the null hypothesis is true.
+For the non-zero parameters, the p-values move from being uniform when the power of the test is low (e.g. $\hat\beta_2$ for $n = 32$) to being always approximately 0 when the power of the test is high (e.g. $\hat\beta_4$ when $n \geq 128$).
+
+```{r sims4_pvalue_density,fig.height = 5}
+ggplot(mutate(sims4, n = factor(n))) +
+  geom_density(aes(x = p.value, y = ..scaled..)) +
+  geom_rug(aes(x = p.value)) +
+  facet_grid(term ~ n, scale = "free_y")
+```
+
+*Note:* 
+It is difficult to plot the densities on one plot, because the densities are of different magnitudes.
+To make it easier to compare the plots, the densities are scaled to have a maximum of 1 (option `..scaled..` in `geom_density`).
+
+Finally, consider the magnitudes of parameter values if they are first filtered by statistical significance. 
+The general pattern is that although OLS estimates are unbiased, the distribution of OLS estimates *conditional* on being statistically significant are biased upwards (in magnitude). 
+
+```{r sims4_estimates, fig.height = 5, fig.width = 5}
+ggplot(mutate(sims4, n = factor(n)) %>%
+         filter(p.value < 0.05)) +
+  geom_density(aes(x = estimate, y = ..scaled..), adjust = 0.5) +
+  geom_rug(aes(x = estimate)) +
+  facet_grid(term ~ n, scale = "free")
+```
+
+From the plot above there are several patterns
+
+1. For the zero-parameters, since the true parameter is equal to zero, the only samples that produce statistically significant effects have estimates that are well above or below zero.
+2. For the non-zero parameters, as long as the power is less than 1, the distribution of estimates conditional on statistical significance is skewed right, and on average overestimate the value of the parameter.
+3. When the power and magnitude is lowe, e.g. $\hat\beta_2$ for $n = 32$, some samples produce statistically significant results with the wrong sign. In this case the distribution of statistically significant estimates is similar to that of the zero parameters --- they are bimodal and either too small or too large.
+4. For the non-zero parmaters, when the power is 1, then there are not samples that are statistically insignificant, so the distribution of estimates conditional on being statistically significant is the same as the distribution of the unconditional estimates, and centered at the true value.
+
+The following table shows how distributions of the statistically significant estimates is biased upwards, but that the bias decreases as the sample size increases.
+```{r}
+sims4 %>%
+  mutate(n = factor(n),
+        positive = estimate > 0) %>%
+  filter(p.value < 0.05) %>%
+  mutate(positive = ifelse(positive, "positive", "negative")) %>%
+  group_by(term, n, positive) %>%
+  summarize(estimate_mean = mean(estimate)) %>%
+  ungroup() %>%
+  spread(positive, estimate_mean) %>%
+  arrange(term, n)
+
+```
+
+
+## Problem 5: Omitted Variable Bias
+
+Now we will consider how omitted variable bias affects the estimates of OLS.
+See the [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#omitted-variable-bias) for details of these simulations.
+
+The following code sets up the parameter for the simulation, and runs simulations for different values of the correlation between $x_1$ and $x_3$ (variable `rho_values`):
+```{r sims5}
+n <- 1024
+k <- 3
+mu_X <- rep(0, k)
+s_X <- rep(1, k)
+beta <- c(0, rep(1, k))
+sigma <- 1.7
+```
+```{r sims5_loop}
+rho_values <- c(0, 0.1, 0.7, -0.7, 0.99, -0.99)
+sims5 <- list()
+# Loop over the integers 1 to the number of different sample sizes.
+for (i in 1:length(rho_values)) {
+  # Create a correlation matrix
+  rho <- rho_values[i]
+  R_X <- diag(k)
+  R_X[1, 3] <- rho
+  R_X[3, 1] <- R_X[1, 3]
+  sim_results <- sim_lin_norm_omitted(iter, n, mu_X, s_X, R_X, beta, sigma, omit = 3)
+  # Summarize simmulations
+  sim_summ <- summarize_sim(sim_results, beta[1:3])
+  # Add a new column to the data to indicate which sample size this simulation used
+  sim_summ[["rho"]] <- rho
+  # Save the data to the list in location i
+  sims5[[i]] <- sim_summ
+}
+sims5 <- bind_rows(sims5)
+```
+
+With $x_3$ omitted, the estimates of $\beta_1$ are biased with the magnitude of bias increasing with the magnitude of correlation between $x_1$ and $x_3$ and the direction of the bias in the same direction as the correlation between $x_1$ and $x_3$. 
+Because $x_2$ is uncorrelated with the omitted variable $x_3$, the estimates of $\beta_3$ remain uncorrelated.
+```{r sims5_bias}
+sims5_beta_bias <- sims5 %>%
+  mutate(bias = estimate_mean - beta_true) %>%
+  select(term, rho, bias, estimate_mean, beta_true) %>%
+  arrange(term, rho)
+sims5_beta_bias
+```
+
+While the coefficients are biased, the standard deviation of the coefficients is not affected by the correlation.
+```{r sims5_beta_sd}
+sims5_beta_sd <-
+  sims5 %>%
+  select(term, estimate_sd, rho) %>%
+  spread(term, estimate_sd)
+sims5_beta_sd
+```
+
+Both the classical and robust standard errors are good estimates of $\sd(\beta)$.
+```{r sims5_se}
+sims5 %>%
+  mutate(bias = estimate_sd - se_mean) %>%
+  select(term, rho, bias, estimate_sd, se_mean) %>%
+  arrange(term, rho)
+```
+```{r sims5_se_robust}
+sims5 %>%
+  mutate(bias = estimate_sd - se_robust_mean) %>%
+  select(term, rho, bias, estimate_sd, se_robust_mean) %>%
+  arrange(term, rho)
+```
+
+## Problem 6: Heteroskedasticity
+
+In these simulations we consider how heteroskedasticity affects the estimates of OLS.
+See the [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#heteroskedasticity) for details of these simulations.
+
+
+The following code sets the parameters for the simulations, and runs simulations for varying values of heteroskedasticity, as set by $\gamma_13 in the variable `gamma1`:
+```{r sims6_params}
+n <- 1024
+k <- 2
+mu_X <- rep(0, k)
+s_X <- rep(1, k)
+R_X <- diag(k)
+beta <- c(0, rep(1, k))
+gamma0 <- 1.5
+gamma2 <- 0
+```
+```{r sims6_loop}
+gamma1_values <- c(0, 0.2, 0.7)
+sims6 <- list()
+for (i in 1:length(gamma1_values)) {
+  # Create a correlation matrix
+  gamma1 <- gamma1_values[i]
+  sim_results <- sim_lin_norm_heterosked(iter, n, mu_X, s_X, R_X, beta, gamma = c(gamma0, gamma1, gamma2))
+  # Summarize simmulations
+  sim_summ <- summarize_sim(sim_results, beta)
+  # Add a new column to the data to indicate which sample size this simulation used
+  sim_summ[["gamma1"]] <- gamma1
+  # Save the data to the list in location i
+  sims6[[i]] <- sim_summ
+}
+sims6 <- bind_rows(sims6)
+```
+
+Heteroskedasticity does not affect the bias of any of the coefficients.
+```{r sims6_bias}
+sims6_beta_bias <- sims6 %>%
+  mutate(bias = estimate_mean - beta_true) %>%
+  select(term, gamma1, bias, estimate_mean, beta_true) %>%
+  arrange(term, gamma1)
+sims6_beta_bias
+```
+
+The standard deviations of all the coefficients, seem to be increasing with heteroskedasticity, with the the standard deviation of $\hat\beta_1$ increases the most.
+This is because the way the simulations are set up, we are not holding the average value of $\sigma$ constant.
+```{r sims6_beta_sd}
+sims6_beta_sd <-
+  sims6 %>%
+  select(term, estimate_sd, gamma1) %>%
+  spread(term, estimate_sd)
+sims6_beta_sd
+```
+  
+As expected, robust standard errors are better estimates of $\sd(\beta)$.
+Classical standard errors are biased downwards.
+But this bias unnoticeable (relative to the sampling bias in the Monte Carlo simulations) until heteroskedasticity is large.
+```{r sims6_se}
+sims6 %>%
+  mutate(bias = estimate_sd - se_mean) %>%
+  select(term, gamma1, bias, estimate_sd, se_mean) %>%
+  arrange(term, gamma1)
+```
+```{r sims6_se_robust}
+sims6 %>%
+  mutate(bias = estimate_sd - se_robust_mean) %>%
+  select(term, gamma1, bias, estimate_sd, se_robust_mean) %>%
+  arrange(term, gamma1)
+```
+

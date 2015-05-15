@@ -1,0 +1,45 @@
+---
+title: "POLS/CSSS 503: Problem Set 4 Solutions"
+author: "Jeffrey B. Arnold"
+date: "May 15, 2015"
+output:
+  html_document:
+    toc: true
+---
+$$
+\DeclareMathOperator{\cor}{cor}
+\DeclareMathOperator{\cov}{cov}
+\DeclareMathOperator{\sd}{sd}
+\DeclareMathOperator{\se}{se}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\quantile}{quantile}
+$$
+
+This contains the solutions to Problem Set 4.
+Go [here](http://pols503.github.io/pols_503_sp15/hw/hw3.html) for the instructions.
+
+## Setup 
+
+```{r local-init, echo = FALSE, results = 'hide'}
+library("knitr")
+opts_chunk$set(cache = TRUE, autodep = TRUE,
+               fig.height = 3, fig.width = 5
+               )
+```
+
+This code loads the packages that will be used in the analysis.
+```{r load, message = FALSE}
+library("ggplot2")
+library("broom")
+library("tidyr")
+library("dplyr")
+```
+
+This problem set requires some functions in an external file:
+```{r hw4-functions, echo = FALSE}
+source("http://pols503.github.io/pols_503_sp15/hw/hw4-functions.R")
+```
+
+# Solutions {.solutions}
+
+

@@ -1,8 +1,7 @@
 ---
-title: "POLS/CSSS 503: Homework 2 Solutions"
+title: "POLS/CSSS 503: Problem Set 2 Solutions"
 author: "Jeffrey B. Arnold"
 date: "April 24, 2015"
-output: html_document
 ---
 ```{r echo=FALSE,results='hide',message=FALSE}
 knitr::opts_chunk$set(warning = FALSE, message = FALSE,
@@ -15,8 +14,6 @@ Source the libraries that will be used
 ```{r libraries, message = FALSE}
 library("ggplot2")
 library("dplyr")
-library("readr")
-library("httr")
 library("tidyr")
 library("broom")
 ```
@@ -26,8 +23,8 @@ library("broom")
 
 I'll use the **httr** file to download the `csv` file directly.
 ```{r}
-sprinters_csv <- content(GET("https://raw.githubusercontent.com/POLS503/pols_503_sp15/master/data/sprinters.csv"))
-sprinters <- read_csv(sprinters_csv)
+sprinters_url <- "http://pols503.github.io/pols_503_sp15/data/sprinters.csv"
+sprinters <- read.csv(sprinters_url, stringsAsFactors = FALSE)
 ```
 
 **a.** Create a matrix from the sprinters data using `as.matrix`, selecting only the `year` and `women` columns.
@@ -58,25 +55,25 @@ sprinters <- sprinters %>%
 
 ggplot(augment(lm_finish) %>%
        mutate(sex = plyr::mapvalues(women, c(0, 1), c("women", "men"))),
-       aes(x = year, group = sex, 
+       aes(x = year, group = sex,
            colour = sex)) +
   geom_ribbon(alpha = 0.2, colour = NA,
               mapping = aes(ymin = .fitted - 2 * .se.fit,
                             ymax = .fitted + 2 * .se.fit)) +
   geom_point(mapping = aes(y = finish)) +
-  geom_line(mapping = aes(y = .fitted)) + 
-  x_axis_scale + y_axis_scale + 
+  geom_line(mapping = aes(y = .fitted)) +
+  x_axis_scale + y_axis_scale +
   theme_minimal()
 ```
 
 This is a more manual way of creating the plot
 ```{r}
 ggplot(sprinters %>% mutate(fitted = fitted(lm_finish)),
-       aes(x = year, group = sex, 
+       aes(x = year, group = sex,
            colour = sex)) +
   geom_point(mapping = aes(y = finish)) +
-  geom_line(mapping = aes(y = fitted)) + 
-  x_axis_scale + y_axis_scale + 
+  geom_line(mapping = aes(y = fitted)) +
+  x_axis_scale + y_axis_scale +
   theme_minimal()
 ```
 
@@ -86,34 +83,45 @@ ggplot(sprinters %>% mutate(fitted = fitted(lm_finish)),
 lm_finish_interact <- lm(finish ~ year * women, data = sprinters)
 ```
 
-**e.** Redo the plot with a new fit, one for each level of women. This can easily be done with `geom_smooth`.
-```{r}
-ggplot(sprinters, aes(x = year, y = finish, colour = sex)) +
-  geom_point() +
-  geom_smooth(method = "lm") + 
-  theme_minimal()
-``` 
-
-This can also be done using the **broom** package `tidy`.
+**e.** Redo the plot with a new fit, one for each level of `women`.
+This can also be done with the **broom** package `tidy`.
 ```{r}
 ggplot(augment(lm_finish_interact) %>%
        mutate(sex = plyr::mapvalues(women, c(0, 1), c("women", "men"))),
-       aes(x = year, group = sex, 
+       aes(x = year, group = sex,
            colour = sex)) +
   geom_ribbon(alpha = 0.2, colour = NA,
               mapping = aes(ymin = .fitted - 2 * .se.fit,
                             ymax = .fitted + 2 * .se.fit)) +
   geom_point(mapping = aes(y = finish)) +
-  geom_line(mapping = aes(y = .fitted)) + 
-  x_axis_scale + y_axis_scale + 
+  geom_line(mapping = aes(y = .fitted)) +
+  x_axis_scale + y_axis_scale +
   theme_minimal()
 ```
+
+The **ggplot2** function `geom_smooth` does something similar, but not exactly what we want.
+That function will run **separate** regressions for each group.
+Which means that there will be different estimates of the regression standard error for each group.
+When regressions are run with full interactions for each group it is almost the same as running separate regression, except that it imposes the assumption of homogeneous variance.
+```{r}
+ggplot(sprinters, aes(x = year, y = finish, colour = sex)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_minimal()
+```
+
+Although the point estimates are effectively the same, the values of `Residual standard error` are slightly different.
+```{r}
+summary(lm(finish ~ year, data = filter(sprinters, women == 1)))
+summary(lm(finish ~ year, data = filter(sprinters, women == 0)))
+```
+
 
 **f.** Calculate the predicted winning times of the 100 m sprints in 2001.
 ```{r}
 sprinters_2001 <- data_frame(year = rep(2001, 2),
                              women = c(0, 1))
-predict(lm_finish_interact, newdata = sprinters_2001) 
+predict(lm_finish_interact, newdata = sprinters_2001)
 ```
 Although there was no Olympics in 2001, there was a World Championship, which Maurice Greene won in 9.82 and Zhanna Pintusevich won in 10.82.
 
@@ -121,21 +129,21 @@ Although there was no Olympics in 2001, there was a World Championship, which Ma
 ```{r}
 sprinters_2156 <- data_frame(year = rep(2156, 2),
                              women = c(0, 1))
-predict(lm_finish_interact, newdata = sprinters_2156, 
-       interval = "prediction") 
+predict(lm_finish_interact, newdata = sprinters_2156,
+       interval = "prediction")
 ```
-The point predictions of the women's winning time is less than that of the men's winning time. 
+The point predictions of the women's winning time is less than that of the men's winning time.
 
 **h.** No. This is far outside the range of data used to estimate the regression (`r min(sprinters$year)` to `r max(sprinters$year)`).
 It is also logically inconsistent, as in 3000, it would predict the winning time to be negative.
 ```{r}
 sprinters_3000 <- data_frame(year = rep(3000, 2),
                              women = c(0, 1))
-predict(lm_finish_interact, newdata = sprinters_3000, 
-       interval = "prediction") 
+predict(lm_finish_interact, newdata = sprinters_3000,
+       interval = "prediction")
 ```
 
-Let's visualize this. 
+Let's visualize this.
 The `expand.grid` function is an easy way to create combinations of variables.
 ```{r}
 sprinters_to_3000 <- expand.grid(year = seq(1800, 3000, by = 10),
@@ -143,7 +151,7 @@ sprinters_to_3000 <- expand.grid(year = seq(1800, 3000, by = 10),
 sprinters_to_3000_pred <-
   cbind(sprinters_to_3000,
         predict(lm_finish_interact, newdata = sprinters_to_3000,
-                interval = 'prediction'))
+                interval = "prediction"))
 
 ggplot() +
   geom_line(data = sprinters_to_3000_pred, aes(x = year, y = fit,
@@ -153,7 +161,8 @@ ggplot() +
                   ymin = lwr,
                   ymax = upr,
                   fill = factor(women)), alpha = 0.2) +
-  geom_point(data = sprinters, aes(x = year, y = finish, colour = factor(women))) +
+  geom_point(data = sprinters, aes(x = year, y = finish,
+                                   colour = factor(women))) +
   theme_minimal()
 
 ```
@@ -167,15 +176,15 @@ Let's create this data:
 data("anscombe")
 anscombe2 <- anscombe %>%
   mutate(obs = row_number()) %>%
-	gather(variable_dataset, value, - obs) %>%
-	separate(variable_dataset, c("variable", "dataset"), sep = 1L) %>%
-	spread(variable, value) %>%
-	arrange(dataset, obs)
+  gather(variable_dataset, value, - obs) %>%
+  separate(variable_dataset, c("variable", "dataset"), sep = 1L) %>%
+  spread(variable, value) %>%
+  arrange(dataset, obs)
 ```
 
 **a.** All four datasets have similar summary statistics for x, y and the linear relationship between x and y.
 
-The mean  and standard deviation of $x$ 
+The mean  and standard deviation of $x$
 ```{r}
 anscombe2 %>%
   group_by(dataset) %>%
@@ -196,6 +205,8 @@ but, that isn't fun.
 You could do it in a `for` loop
 ```{r}
 for (i in unique(anscombe2$dataset)) {
+  cat("\n")
+  cat(paste("Dataset = ", i, "\n", sep = ""))
   print(lm(y ~ x, data = filter(anscombe2, dataset == i)))
 }
 ```
@@ -228,7 +239,7 @@ ggplot(anscombe2, aes(x = x, y = y)) +
   geom_smooth(method = "lm", se = FALSE) +
   facet_wrap(~ dataset, nrow = 2) +
   theme_minimal()
-  
+
 ```
 
 
@@ -237,7 +248,7 @@ ggplot(anscombe2, aes(x = x, y = y)) +
 There will be many different responses.
 
 
-* * * 
+* * *
 
 This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>.
 The R code is licensed under a <a rel="license" href="http://www.r-project.org/Licenses/BSD_2_clause ">BSD 2-clause</a> license.

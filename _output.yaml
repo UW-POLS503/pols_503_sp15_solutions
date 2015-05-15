@@ -1,0 +1,9 @@
+html_document:
+  theme: cosmo
+  css: "custom.css"
+  highlight: textmate
+  toc: true
+  pandoc_args: [
+    "--smart"
+  ]
+pdf_document: default
