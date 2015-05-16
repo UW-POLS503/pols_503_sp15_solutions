@@ -25,7 +25,7 @@ library("ggplot2")
 library("dplyr")
 library("broom")
 library("tidyr")
-source("")
+source("http://pols503.github.io/pols_503_sp15/hw/hw4-functions.R")
 ```
 
 
@@ -38,43 +38,133 @@ We will revisit the sprinters data we considered in Problem Set 2.
 sprinters <- read.csv("http://pols503.github.io/pols_503_sp15/data/sprinters.csv")
 ```
 
-a. Add confidence intervals to the plots you made for Problem Set 2, problem 1d. using the  `predict()` command to generate the confidence intervals around the expected finish times.
 
-b. Rerun the analysis and recreate the plot, adding confidence intervals, for the
-model:
-$$
-    \begin{aligned}[t]
-    \log(\mathtt{Finish}_i) &= \beta_9 + \beta_1 \mathtt{year}_i + \beta_2 \mathtt{women}_i + \beta_3 \mathtt{year}_i × \mathtt{women}_i + \epsilon_i
-    \end{aligned}
-    $$
-    Be sure to explain in words how this specification differs from the one used in part a.
+**a.** Estimate a linear regression of `finish` on `year` and `women`:
+```{r}
+mod1 <- lm(finish ~ year + women, data = sprinters)
+```
+We can create a plot in several ways.
+Using the observed values and `augment()`:
+This gets the critical value of the Student's $t$ distribution for the degrees of freedom in the regression and a 95% confidence interval (using 2 should be good enough, but I'm feeling pedantic today).
+```{r}
+tstar <- - qt((1 - 0.95)/ 2, df = mod1$df.residual)
+```
+```{r}
+ggplot(mutate(augment(mod1),
+              sex = ifelse(as.logical(women), "women", "men")),
+              aes(x = year, y = .fitted,
+                  ymax = .fitted + .se.fit * tstar,
+                  ymin = .fitted - .se.fit * tstar,
+                  colour = sex, fill = sex)) +
+  geom_ribbon(alpha = 0.2, colour = NA) +
+  geom_line() +
+  geom_point(mapping = aes(y = finish))
+```
+Using `predict()`:
+```{r}
+mod1_newdata <-
+  expand.grid(year = seq(min(sprinters$year), max(sprinters$year)),
+                        women = c(0, 1))
+mod1_yhat <-
+  bind_cols(mod1_newdata, 
+            as.data.frame(predict(mod1, mod1_newdata, interval = "confidence"))) %>%
+  mutate(sex = ifelse(as.logical(women), "women", "men"))
 
-c. Rerun the analysis and recreate the plot, adding confidence intervals, for the
-model:
-    $$
-    \begin{aligned}[t]
-    \log(\mathtt{Finish}_i) &= \beta_9 + \beta_1 \mathtt{year}_i + \beta_2 \mathtt{women}_i + \beta_3 \mathtt{year}_i × \mathtt{women}_i \\
-	& + \beta_4 \mathtt{year}_i^2 + \beta_5 \mathtt{year}_i^2 × \mathtt{women}_i + \epsilon_i
-    \end{aligned}
-    $$
-    Be sure to explain in words how this specification differs from the ones used in part a. and b.
-d. Compare the visual fit of these models to the data within the observed period.
-    Which do you find plausible fits?
-e. Do these models have different predictions for the Olympics of 2156? (Hint:
-    extending your plots to go up to 2156 is an easy way to see this.) Why or why
-    not?
-f. Now create a new variable, the ratio of men’s time to women’s time in each
+ggplot() +
+  geom_ribbon(data = mod1_yhat,
+              mapping = aes(x = year, ymin = lwr, ymax = upr, fill = sex), alpha = 0.2) +
+  geom_line(data = mod1_yhat, 
+            mapping = aes(x = year, y = fit, colour = sex)) +
+  geom_point(data = sprinters %>%
+  mutate(sex = ifelse(as.logical(women), "women", "men")),
+  mapping = aes(y = finish, x = year, colour = sex))
+```
+
+
+**b.**  In this problem, I'll estimate a linear regression of `finish` on `year` and `women` and the interaction thereof:
+```{r}
+mod2 <- lm(finish ~ year * women, data = sprinters)
+```
+Although the plot of predicted values can be created in several ways (see the previous), but this time I'll use augment.
+```{r}
+ggplot(mutate(augment(mod2),
+              sex = ifelse(as.logical(women), "women", "men")),
+              aes(x = year, y = .fitted,
+                  ymax = .fitted + .se.fit * tstar,
+                  ymin = .fitted - .se.fit * tstar,
+                  colour = sex, fill = sex)) +
+  geom_ribbon(alpha = 0.2, colour = NA) +
+  geom_line() +
+  geom_point(mapping = aes(y = finish))
+```
+
+
+**c.** In this problem, I'll estimate a linear regression of `finish` on `year`, `year` squared, and `women` and the interaction thereof:
+```{r}
+mod3 <- lm(finish ~ year * women + I(year ^ 2) * women, data = sprinters)
+```
+Although the plot of predicted values can be created in several ways (see the previous), but this time I'll use `augment()`.
+```{r}
+ggplot(mutate(augment(mod3),
+              sex = ifelse(as.logical(women), "women", "men")),
+              aes(x = year, y = .fitted,
+                  ymax = .fitted + .se.fit * tstar,
+                  ymin = .fitted - .se.fit * tstar,
+                  colour = sex, fill = sex)) +
+  geom_ribbon(alpha = 0.2, colour = NA) +
+  geom_line() +
+  geom_point(mapping = aes(y = finish))
+```
+    
+**d.** Compare the visual fit of these models to the data within the observed period. Which do you find plausible fits?
+    
+    
+**e.** Ummm, yes. 
+```{r}
+predict(mod1, newdata = expand.grid(women = c(0, 1), year = 2156))
+predict(mod2, newdata = expand.grid(women = c(0, 1), year = 2156))
+predict(mod3, newdata = expand.grid(women = c(0, 1), year = 2156))
+```
+`mod1` predicts women will be faster than men.
+`mod2` predicts that in 2156 the times of men and women will be equal.
+`mod3` predicts that in 2156 women will be 4 seconds faster than men, and even slower in 2001. 
+    
+**f.** Now create a new variable, the ratio of men’s time to women’s time in each
    year.
-   Logit-transform this variable and regress it on year. Plot the results,    with confidence intervals, on the scale of the ratio men’s time to women’s time (i.e., transform it back from logit).
+   Logit-transform this variable and regress it on year. Plot the results,with confidence intervals, on the scale of the ratio men’s time to women’s time (i.e., transform it back from logit).
    Does this approach make any assumptions about men’s times or women’s times that might be problematic?
+   
+```{r}
+sprinters2 <- 
+  sprinters %>%
+  mutate(sex = ifelse(as.logical(women), "women", "men")) %>%
+  select(-women) %>%
+  spread(sex, finish) %>%
+  mutate(rat = men / women,
+         logit_rat = log(rat / (1 - rat))) %>%
+  na.omit()
+
+logit <- function(x) log(x / (1 - x))
+inv_logit <- function(x) exp(x) / (exp(x) + 1)
+
+mod4 <- lm(logit(rat) ~ year, data = sprinters2)
+
+ggplot(augment(mod4),
+       aes(x = year,
+           y = inv_logit(.fitted),
+           ymax = inv_logit(.fitted + .se.fit * 2),
+           ymin = inv_logit(.fitted - .se.fit * 2))) +
+  geom_ribbon(alpha = 0.2, colour = NA) +
+  geom_line() +
+  geom_point(mapping = aes(y = inv_logit(logit.rat.))) +
+  scale_y_continuous("logit(men finish / women finish)")
+
+```
+
 
 ## Model Selection: Oil & Democracy
 
-For this problem, we will use a cleaned-up version of the dataset of Michael Ross, "Does Oil Hinder Democracy?" *World Politics*, 2001.
-That paper estimated a time series cross-section model of Polity scores regressed on oil exports and a battery of controls.
-In this problem, we will focus on a single cross-section, and instead focus on model fitting.
 
-Load this data using the following code:
 ```{r}
 ross95 <- read.csv("http://pols503.github.io/pols_503_sp15/data/rossoildata.csv") %>%
    group_by(id) %>%
@@ -86,40 +176,48 @@ ross95 <- read.csv("http://pols503.github.io/pols_503_sp15/data/rossoildata.csv"
    na.omit()
 ```
 
-The above code:
 
-- `lag()` calculates the lag values of `oil`, `metal`, and `GDPcap`. The second argument of `5`, means that it calculates a lag of 5.[^1]
-- `group_by` ensures that the lag values are only calculated within each country.
-- Keeps only observations from 1995 and a subset of variables
-- Omits missing values with `na.omit()`.
+**a.** 
 
-[^1]: The original `ross95` data has separate variables with the lagged values, but I wanted to show how to calculate lags with `dplyr`.
+```{r}
+oil_lm_1 <- lm(regime1 ~ oilL5 + metalL5 + GDPcapL5 + islam + oecd, data = ross95)
+```
 
-A description of the included variables follows:
+The standard error of the regression is 
+```{r}
+glance(oil_lm_1)$sigma
+```
 
-| Variable | Description |
-|:--|:--|
-| `regime1` |    1–10 scale increasing in democracy; computed from Polity components |
-| `oilL5` |      Fuel exports as a proportion of GDP, lagged 5 years |
-| `metalL5` |    Ore and mineral exports as a proportion of GDP, lagged 5 years |
-| `GDPcapL5` |    per capita GDP in PPP dollars, lagged 5 years |
-| `islam` |      Muslims as a proportion of population, 1970 data |
-| `oecd` |       Dummy for rich industrialized countries |
-| `cty_name` |   The name of the country observed |
-| `id` |         A three character abbreviation of the country name |
-| `id1` |        A numeric country code |
+The change in `regime1` associated with a change from the 50th percentile to the 95th percentile of oil, holding all other variables at their means (including binary) is:
+```{r}
+oil_lm_1_oil_predict_lo <- 
+  predict(oil_lm_1,
+          newdata = summarise(ross95, 
+                              oilL5 = median(oilL5),
+                              metalL5 = mean(metalL5),
+                              islam = mean(islam),
+                              oecd = mean(oecd),
+                              GDPcapL5 = mean(GDPcapL5)))
 
+oil_lm_1_oil_predict_hi <- 
+  predict(oil_lm_1,
+          newdata = summarise(ross95, 
+                              oilL5 = quantile(oilL5, 0.95),
+                              metalL5 = mean(metalL5),
+                              islam = mean(islam),
+                              oecd = mean(oecd),
+                              GDPcapL5 = mean(GDPcapL5)))
 
+oil_lm_1_oil_predict_hi - 
+  oil_lm_1_oil_predict_lo
+```
 
-a. Load the dataset `ross95.csv`, which contains a partially cleaned cross-section of replication data for the year 1995.
-    Estimate a linear regression of `regime1` on `oilL5`, `metalL5`, `GDPpcL5`, `islam`, and `oecd`.
-    Record the standard error of the regression, and calculate the expected change in `regime1` given a change in `oilL5` from the 50th percentile to the 95th percentile of the fully observed data, all else equal.
-b. Using the residuals from the regression in part a., create the following diagnostic plots:
+**b.** Using the residuals from the regression in part a., create the following diagnostic plots:
     
     1. Plot the residuals against the fitted values
     2. Plot the residuals against each covariate
     3. Plot the studentized residuals against the standardized hat values.
-    4. Calculate the heteroskedastic consistent standard errors and compare to the classical standard erros. Use the **car** function `hccm`.
+    4. Calculate the heteroskedastic consistent standard errors and compare to the classical standard errors. Use the **car** function `hccm`.
     
     What do these diagnostics tell you about the presence of heteroskedasticity, specification error, and outliers?
     
