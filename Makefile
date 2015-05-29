@@ -16,7 +16,7 @@ pdf: $(PDF_FILES)
 	$(RSCRIPT) -e 'rmarkdown::render("$^", output_file="$@", runtime="static", quiet=TRUE, output_format="html_document")'
 
 %.pdf: %.Rmd
-	$(RSCRIPT) -e 'rmarkdown::render("$^", output_file="$@", runtime="static", quiet=TRUE, output_format="pdf_document")'
+	$(RSCRIPT) -e 'rmarkdown::render("$^", output_file="$@", quiet=TRUE, output_format="pdf_document")'
 
 clean:
 	-rm $(HTML_FILES) $(PDF_FILES) $(MD_FILES) *_cache *_files

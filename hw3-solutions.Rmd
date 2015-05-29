@@ -1,16 +1,9 @@
 ---
-title: "POLS/CSSS 503: Problem Set 3 Solutions"
+title: 'POLS/CSSS 503: Problem Set 3 Solutions'
 author: "Jeffrey B. Arnold"
 date: "May 2, 2015"
+output: pdf_document
 ---
-$$
-\DeclareMathOperator{\cor}{cor}
-\DeclareMathOperator{\cov}{cov}
-\DeclareMathOperator{\sd}{sd}
-\DeclareMathOperator{\se}{se}
-\DeclareMathOperator{\diag}{diag}
-\DeclareMathOperator{\quantile}{quantile}
-$$
 
 This contains the solutions to Problem Set 3.
 Go [here](http://pols503.github.io/pols_503_sp15/hw/hw3.html) for the instructions.
@@ -45,14 +38,14 @@ select <- dplyr::select
 
 This problem set requires some functions written to do the sampling.
 ```{r hw3-functions, echo = FALSE}
-source("hw3-functions.R")
+source("http://pols503.github.io/pols_503_sp15/hw/hw3-functions.R")
 ```
 
 # Solutions {.solutions}
 
 All the simulations will use 1,024 iterations, so I set the variable `iter` to that value in order to reuse it throughout the problem set.
 ```{r}
-iter <- 1024
+iter <- 4096
 ```
 
 ## Problem 1
@@ -427,7 +420,7 @@ In these simulations we consider how heteroskedasticity affects the estimates of
 See the [problem set](http://pols503.github.io/pols_503_sp15/hw/hw3.html#heteroskedasticity) for details of these simulations.
 
 
-The following code sets the parameters for the simulations, and runs simulations for varying values of heteroskedasticity, as set by $\gamma_13 in the variable `gamma1`:
+The following code sets the parameters for the simulations, and runs simulations for varying values of heteroskedasticity, as set by $\gamma_{13}$ in the variable `gamma1`:
 ```{r sims6_params}
 n <- 1024
 k <- 2
