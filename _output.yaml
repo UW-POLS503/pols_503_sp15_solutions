@@ -6,4 +6,11 @@ html_document:
   pandoc_args: [
     "--smart"
   ]
-pdf_document: default
+  includes:
+    in_header: in_header.html
+    before_body: before_body.html
+    after_body: after_body.html
+  keep_md: true
+pdf_document:
+  includes:
+    in_header: includes.tex

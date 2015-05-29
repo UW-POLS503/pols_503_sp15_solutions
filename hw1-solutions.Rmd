@@ -16,176 +16,207 @@ library("dplyr")
 library("readr")
 library("knitr")
 theme_local <- theme_minimal
+# nicer default binwidths
+sturges_binwidth <- function(x) {
+  diff(range(x)) / nclass.Sturges(x)
+}
 ```
 
 ## Problem 1
 
-a. I read in democracy using the **readr** function `read_csv`. I need to use the argument `na="."` because missing values are recorded as "."
+### part a
 
-  ```{r democracy}
-	democracy <- read.csv(file = "http://pols503.github.io/pols_503_sp15/data/democracy.csv", na = ".", stringsAsFactors = FALSE)
-	```
+I read in democracy using the **readr** function `read_csv`. I need to use the argument `na="."` because missing values are recorded as "."
 
-b. Summarize the dataset using summary
-	```{r summary}
-	summary(democracy)
-	```
+```{r democracy}
+democracy <- read.csv(file = "http://pols503.github.io/pols_503_sp15/data/democracy.csv", na = ".", stringsAsFactors = FALSE)
+```
 
-c. Use `select` to remove the identifier variables, and then compute the correlation of the remaining variables with the `cor` function. The argument `use` handles how missing values in `cor` are treated. The options `"complete.obs"` will drop any case (row) with a missing value, while `"pairwise.complete.obs"` will drop pairs will missing values. 
-	```{r cor}
-	democracy %>%
-	  select(- COUNTRY, - CTYNAME, - REGION, - YEAR) %>%
-	  cor(use = "pairwise.complete.obs")
-	  
-	```
+### part b
 
-d. To plot a histogram with each value of `POLLIB` in its own bin, either adjust the `binwidth` parameter of `geom_histogram`
-	```{r hist_pollib1}
-	ggplot(democracy, aes(x = POLLIB)) +
-  geom_histogram(bindwith = 1) +
-  xlab("Index of Political Liberty") +
-  theme_local() 
-	```
-	or turn `POLLIB` into a factor
-	```{r hist_pollib2}
-	ggplot(democracy, aes(x = factor(POLLIB))) +
-  geom_histogram(binwith = 1) +
+Summarize the dataset using summary
+```{r summary}
+summary(democracy)
+```
+
+### part c
+
+Use `select` to remove the identifier variables, and then compute the correlation of the remaining variables with the `cor` function. The argument `use` handles how missing values in `cor` are treated. The options `"complete.obs"` will drop any case (row) with a missing value, while `"pairwise.complete.obs"` will drop pairs will missing values.
+```{r cor}
+democracy %>%
+  select(- COUNTRY, - CTYNAME, - REGION, - YEAR) %>%
+  cor(use = "pairwise.complete.obs")
+```
+
+### part d
+
+To plot a histogram with each value of `POLLIB` in its own bin, either adjust the `binwidth` parameter of `geom_histogram`
+```{r hist_pollib1}
+ggplot(democracy, aes(x = POLLIB)) +
+  geom_histogram(binwidth = 1) +
   xlab("Index of Political Liberty") +
   theme_local()
-	```
-  They produce slightly different looking plots, but both put each unique value of `POLLIB` (1-9) into separate plots.
+```
+or turn `POLLIB` into a factor
+```{r hist_pollib2}
+ggplot(democracy, aes(x = factor(POLLIB))) +
+  geom_histogram(binwidth = 1) +
+  xlab("Index of Political Liberty") +
+  theme_local()
+```
+They produce slightly different looking plots, but both put each unique value of `POLLIB` (1-9) into separate plots.
 
-e. A histogram of GDP per capita is
+### part e
 
-	```{r hist_gdpw}
-	ggplot(democracy, aes(x = GDPW)) +
-  geom_histogram() +
+A histogram of GDP per capita is
+
+```{r hist_gdpw}
+ggplot(democracy, aes(x = GDPW)) +
+  geom_histogram(binwidth = sturges_binwidth(democracy$GDPW)) +
   xlab("GDP per capita") +
   theme_local()
-	```
+```
 
-f. A histogram of *log* GDP per capita is
-	```{r hist_gdpw_log}
-	ggplot(democracy, aes(x = log(GDPW))) +
-  geom_histogram() +
-  xlab("log GDP per capita") +
+### part f
+
+A histogram of *log* GDP per capita is
+```{r hist_gdpw_log}
+ggplot(democracy, aes(x = log(GDPW))) +
+geom_histogram(binwidth = sturges_binwidth(log(democracy$GDPW))) +
+xlab("log GDP per capita") +
+theme_local()
+```
+
+### part g
+
+Create a scatterplot of political liberties against GDP per capita
+```{r point_pollib_gdpw}
+ggplot(democracy, aes(x = GDPW, y = POLLIB)) +
+  geom_point() +
+  ylab("Per capita GDP") +
+  xlab("Index of Political Liberty") +
   theme_local()
-	```
+```
 
-g. Create a scatterplot of political liberties against GDP per capita
-	```{r point_pollib_gdpw}
-	ggplot(democracy, aes(x = GDPW, y = POLLIB)) +
-	  geom_point() +
-	  scale_y_continuous("Per capita GDP") +
-	  scale_x_continuous("Index of Political Liberty") +
-	  theme_local()
-	```
+### part h
 
-h. Create the same scatterplot while jittering the points
-	```{r point_pollib_gdpw_jitter}
-	ggplot(democracy, aes(x = GDPW, y = POLLIB)) +
-	  geom_jitter(height = 0.5) +
-	  scale_y_continuous("Per capita GDP") +
-	  scale_x_continuous("Index of Political Liberty") +
-	  theme_local() 
-	```
+Create the same scatterplot while jittering the points
+```{r point_pollib_gdpw_jitter}
+ggplot(democracy, aes(x = GDPW, y = POLLIB)) +
+  geom_jitter(height = 0.5) +
+  scale_y_continuous("Per capita GDP") +
+  scale_x_continuous("Index of Political Liberty") +
+  theme_local()
+```
 
-i. Create a scatterplot of political liberties against *log* GDP per capita
-	```{r point_pollib_log_gdpw}
-	ggplot(democracy, aes(x = log(GDPW), y = POLLIB)) +
-	  geom_jitter(height = 0.5) +
-	  scale_y_continuous("Log(Per capita GDP)") +
-	  scale_x_continuous("Index of Political Liberty") +
-	  theme_local()
-	```
+### part i
 
+Create a scatterplot of political liberties against *log* GDP per capita
+```{r point_pollib_log_gdpw}
+ggplot(democracy, aes(x = log(GDPW), y = POLLIB)) +
+  geom_jitter(height = 0.5) +
+  scale_y_continuous("Log(Per capita GDP)") +
+  scale_x_continuous("Index of Political Liberty") +
+  theme_local()
+```
 
-j. A boxplot of GDP per capita for oil producing and non-oil producing nations is
+### part j
 
-	```{r}
-	ggplot(democracy, aes(x = factor(OIL), y = GDPW)) +
-	  geom_boxplot() + 
-	  scale_x_discrete("Oil Exporter") +
-    theme_local()
-	
-	```
+A boxplot of GDP per capita for oil producing and non-oil producing nations is
+```{r}
+ggplot(democracy, aes(x = factor(OIL), y = GDPW)) +
+  geom_boxplot() +
+  scale_x_discrete("Oil Exporter") +
+  theme_local()
 
-k. The average GDP per captical of countries at least 40% Catholic countries was 1.3 times higher than those which were less than 40% Catholic.
-	```{r gdpw_by_cath}
-	catholic_gdpw <- filter(democracy, CATH > 40)$GDPW %>% mean(na.rm = TRUE)
-	catholic_gdpw
-	all_gdpw <- mean(democracy$GDPW, na.rm = FALSE)
-	all_gdpw
-	catholic_gdpw / all_gdpw
-	```
+```
 
-l. The GDP per capita in countries with greater than 60% ethnolinguistic fractionalization, less than 60%, and missing ethnolinguistic fractionalization is shown in the following table:
-	```{r gdpw_by_elf60}
-	elf_summary <- democracy %>%
-	  mutate(high_elf60 = ELF60 > 0.6) %>%
-	  group_by(high_elf60) %>%
-	  summarise(gdpw_mean = mean(GDPW))
-	kable(elf_summary)
-	```
+### part k 
 
-m. The median years of education for all countries in 1985 was 5.6 years.
-	```{r median_edt_1985}
-	democracy %>%
-	  filter(YEAR == 1985) %>%
-	  summarise(EDT = median(EDT, na.rm = TRUE)) %>%
-	  select(EDT)
-	
-	```
+The average GDP per captical of countries at least 40% Catholic countries was 1.3 times higher than those which were less than 40% Catholic.
+```{r gdpw_by_cath}
+catholic_gdpw <- filter(democracy, CATH > 40)$GDPW %>% mean(na.rm = TRUE)
+catholic_gdpw
+all_gdpw <- mean(democracy$GDPW, na.rm = FALSE)
+all_gdpw
+catholic_gdpw / all_gdpw
+```
 
-n. Venezuela was the country closest (in this case, equal) to the median of the average years of education in 1985.
-	```{r cty_edt_median_1985}
-	democracy %>%
-	  filter(YEAR == 1985, ! is.na(EDT)) %>%
-	  mutate(med_edt_diff = abs(EDT - median(EDT))) %>%
-	  filter(med_edt_diff == min(med_edt_diff)) %>%
-	  select(CTYNAME, EDT)
-	
-	```
+### part l
 
-o. The median of the average years of education for democracies in 1985 was 7.8 years.
-	```{r median_edt_reg_1985}
-	edt_reg_1985 <-
-	  democracy %>%
-	  filter(! is.na(EDT),
-	         ! is.na(REG),
-	         as.logical(REG),
-	         YEAR == 1985)
-	
-	edt_reg_1985$EDT %>% median()
-	```
+The GDP per capita in countries with greater than 60% ethnolinguistic fractionalization, less than 60%, and missing ethnolinguistic fractionalization is shown in the following table:
+```{r gdpw_by_elf60}
+elf_summary <- democracy %>%
+  mutate(high_elf60 = ELF60 > 0.6) %>%
+  group_by(high_elf60) %>%
+  summarise(gdpw_mean = mean(GDPW))
+kable(elf_summary)
+```
 
-n. Mauritius was democracy that were closest to the median of the average years of education for all democracies in 1985 
-	```{r edt_reg_1985_median_country}
-	edt_reg_1985 %>%
-	  mutate(med_edt_diff = abs(EDT - median(EDT))) %>%
-	  filter(med_edt_diff == min(med_edt_diff)) %>%
-	  select(CTYNAME, EDT)
-	```
+### part m
 
-q. The 25th and 75th percentiles of the ethnolinguist fractionalization (`ELF60`) for new  and old countries (`NEWC`) is shown in the table below:
-	
-	```{r}
-  dem_elf_tabl <- 
-	democracy %>%
-	  filter(! is.na(ELF60)) %>%
-    mutate(`Country Type` = ifelse(as.logical(NEWC), "new", "old")) %>%
-	  group_by(`Country Type`) %>%
-	  summarise(elf60_p25 = quantile(ELF60, probs = 0.25),
-	            elf60_p75 = quantile(ELF60, probs = 0.75))
-	kable(dem_elf_tabl)  
-	```
+The median years of education for all countries in 1985 was 5.6 years.
+```{r median_edt_1985}
+democracy %>%
+  filter(YEAR == 1985) %>%
+  summarise(EDT = median(EDT, na.rm = TRUE)) %>%
+  select(EDT)
+
+```
+
+### part n
+
+Venezuela was the country closest (in this case, equal) to the median of the average years of education in 1985.
+```{r cty_edt_median_1985}
+democracy %>%
+  filter(YEAR == 1985, ! is.na(EDT)) %>%
+  mutate(med_edt_diff = abs(EDT - median(EDT))) %>%
+  filter(med_edt_diff == min(med_edt_diff)) %>%
+  select(CTYNAME, EDT)
+
+```
+
+### part o
+
+The median of the average years of education for democracies in 1985 was 7.8 years.
+```{r median_edt_reg_1985}
+edt_reg_1985 <-
+  democracy %>%
+  filter(! is.na(EDT),
+		 ! is.na(REG),
+		 as.logical(REG),
+		 YEAR == 1985)
+
+edt_reg_1985$EDT %>% median()
+```
+
+### part p
+
+Mauritius was democracy that were closest to the median of the average years of education for all democracies in 1985
+```{r edt_reg_1985_median_country}
+edt_reg_1985 %>%
+  mutate(med_edt_diff = abs(EDT - median(EDT))) %>%
+  filter(med_edt_diff == min(med_edt_diff)) %>%
+  select(CTYNAME, EDT)
+```
+
+### part q
+
+The 25th and 75th percentiles of the ethnolinguist fractionalization (`ELF60`) for new  and old countries (`NEWC`) is shown in the table below:
+
+```{r}
+dem_elf_tabl <-
+democracy %>%
+  filter(! is.na(ELF60)) %>%
+  mutate(`Country Type` = ifelse(as.logical(NEWC), "new", "old")) %>%
+  group_by(`Country Type`) %>%
+  summarise(elf60_p25 = quantile(ELF60, probs = 0.25),
+			elf60_p75 = quantile(ELF60, probs = 0.75))
+kable(dem_elf_tabl)
+```
 
 
 ## Problem 2
 
 Answers will vary. Obviously.
 
-* * * 
-
-This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>.
-The R code is licensed under a <a rel="license" href="http://www.r-project.org/Licenses/BSD_2_clause ">BSD 2-clause</a> license.

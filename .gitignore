@@ -4,3 +4,5 @@
 *_cache/
 *_files/
 *-solutions.pdf
+hw*.md
+/auto/
