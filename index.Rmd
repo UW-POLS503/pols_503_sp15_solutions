@@ -1,0 +1,6 @@
+Solutions for
+
+- [Assignment 1](hw1.html) [solutions](hw1-solutions.html)
+- [Assignment 2](hw2.html) [solutions](hw2-solutions.html)
+- [Assignment 3](hw3.html) [solutions](hw3-solutions.html)
+- [Assignment 4](hw4.html) [solutions](hw4-solutions.html)

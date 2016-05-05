@@ -1,24 +1,15 @@
 RSCRIPT = Rscript
-RMD_FILES = $(wildcard *.Rmd)
-HTML_FILES = $(RMD_FILES:%.Rmd=%.html)
-MD_FILES = $(RMD_FILES:%.Rmd=%.md)
-PDF_FILES = $(RMD_FILES:%.Rmd=%.pdf)
+HW_RMD = $(wildcard hw*.Rmd) index.Rmd
+HW_HTML = $(HW_RMD:%.Rmd=%.html)
+INCLUDES = before_body.html after_body.html
 
 all: build
 
-build: html pdf
+build: $(HW_HTML)
 
-html: $(HTML_FILES)
+%.html: %.Rmd  $(INCLUDES)
+	$(RSCRIPT) -e 'rmarkdown::render("$<", output_file="$@", runtime="static")'
 
-pdf: $(PDF_FILES)
+hw3.html: hw3-functions.R
 
-%.html: %.Rmd
-	$(RSCRIPT) -e 'rmarkdown::render("$^", output_file="$@", runtime="static", quiet=TRUE, output_format="html_document")'
-
-%.pdf: %.Rmd
-	$(RSCRIPT) -e 'rmarkdown::render("$^", output_file="$@", quiet=TRUE, output_format="pdf_document")'
-
-clean:
-	-rm $(HTML_FILES) $(PDF_FILES) $(MD_FILES) *_cache *_files
-
-.PHONY: all build html pdf
+.PHONY: all build
