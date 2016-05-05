@@ -23,7 +23,7 @@ library("broom")
 
 I'll use the **httr** file to download the `csv` file directly.
 ```{r}
-sprinters_url <- "http://pols503.github.io/pols_503_sp15/data/sprinters.csv"
+sprinters_url <- "http://uw-pols503.github.io/pols_503_sp15/data/sprinters.csv"
 sprinters <- read.csv(sprinters_url, stringsAsFactors = FALSE)
 ```
 

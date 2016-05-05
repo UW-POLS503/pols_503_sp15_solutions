@@ -38,7 +38,7 @@ select <- dplyr::select
 
 This problem set requires some functions written to do the sampling.
 ```{r hw3-functions, echo = FALSE}
-source("http://pols503.github.io/pols_503_sp15/hw/hw3-functions.R")
+source("http://uw-pols503.github.io/pols_503_sp15/hw/hw3-functions.R")
 ```
 
 # Solutions {.solutions}

@@ -13,7 +13,7 @@ library("ggplot2")
 library("dplyr")
 library("broom")
 library("tidyr")
-source("http://pols503.github.io/pols_503_sp15/hw/hw4-functions.R")
+source("http://uw-pols503.github.io/pols_503_sp15/hw/hw4-functions.R")
 ```
 
 
@@ -23,7 +23,7 @@ source("http://pols503.github.io/pols_503_sp15/hw/hw4-functions.R")
 
 We will revisit the sprinters data we considered in Problem Set 2.
 ```{r}
-sprinters <- read.csv("http://pols503.github.io/pols_503_sp15/data/sprinters.csv")
+sprinters <- read.csv("http://uw-pols503.github.io/pols_503_sp15/data/sprinters.csv")
 ```
 
 
@@ -154,7 +154,7 @@ ggplot(augment(mod4),
 
 
 ```{r}
-ross95 <- read.csv("http://pols503.github.io/pols_503_sp15/data/rossoildata.csv") %>%
+ross95 <- read.csv("http://uw-pols503.github.io/pols_503_sp15/data/rossoildata.csv") %>%
    group_by(id) %>%
    mutate(oilL5 = lag(oil, 5),
           metalL5 = lag(metal, 5),

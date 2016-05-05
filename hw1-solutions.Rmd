@@ -28,8 +28,12 @@ sturges_binwidth <- function(x) {
 
 I read in democracy using the **readr** function `read_csv`. I need to use the argument `na="."` because missing values are recorded as "."
 
-```{r democracy}
+```{r democracy,eval=FALSE}
 democracy <- read.csv(file = "http://pols503.github.io/pols_503_sp15/data/democracy.csv", na = ".", stringsAsFactors = FALSE)
+```
+
+```{r democracy2,results='hide',echo=FALSE}
+democracy <- read.csv(file = "democracy.csv", na = ".", stringsAsFactors = FALSE)
 ```
 
 ### part b
@@ -60,7 +64,7 @@ ggplot(democracy, aes(x = POLLIB)) +
 or turn `POLLIB` into a factor
 ```{r hist_pollib2}
 ggplot(democracy, aes(x = factor(POLLIB))) +
-  geom_histogram(binwidth = 1) +
+  geom_bar() +
   xlab("Index of Political Liberty") +
   theme_local()
 ```
